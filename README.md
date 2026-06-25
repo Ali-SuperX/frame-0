@@ -152,6 +152,10 @@ Licensed under the **GNU Affero General Public License v3.0** — see [`LICENSE`
 
 AGPL-3.0 is a strong copyleft license: **if you run a modified version as a network service, you must offer its complete source to the users of that service.** This keeps derivatives open. For commercial terms outside AGPL, please reach out via an issue.
 
+## 📬 Contact
+
+商务合作、企业定制、私有部署等需求，欢迎联系：**lanke.cl@alibaba-inc.com**
+
 ## 🙏 Acknowledgements
 
 - [Alibaba Cloud Bailian / DashScope](https://bailian.console.aliyun.com) and the underlying model teams — Wan, Kling, PixVerse, HappyHorse and others.

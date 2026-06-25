@@ -958,7 +958,7 @@ export default function Studio({ initialJobId }: { initialJobId?: string }) {
         </div>
         <TopNav current="studio" />
         <div className="right">
-          <Link prefetch={false} href={helpHref} className="chrome-icon" title={zh ? "帮助" : "Help"} style={{ textDecoration: "none" }}>?</Link>
+          <Link prefetch={false} href={helpHref} className="chrome-icon" title={zh ? "帮助文档 (?)" : "Help docs (?)"} style={{ textDecoration: "none" }}>?</Link>
           <button
             type="button"
             className="chrome-icon"
@@ -968,10 +968,13 @@ export default function Studio({ initialJobId }: { initialJobId?: string }) {
               const next = cur < 240 ? 280 : cur < 380 ? 500 : 200;
               setPaneWidth("jobs", next);
             }}
-            title={zh ? "切换左侧任务栏宽度" : "Cycle left sidebar width"}
+            title={zh ? "切换侧栏宽度" : "Toggle sidebar width"}
             aria-label="toggle jobs sidebar"
           >
-            ⇤
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round">
+              <rect x="1" y="2" width="12" height="10" rx="1.5" />
+              <line x1="5" y1="2" x2="5" y2="12" />
+            </svg>
           </button>
           <LocaleSwitcher />
           <button

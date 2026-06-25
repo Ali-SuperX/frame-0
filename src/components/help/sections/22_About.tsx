@@ -53,9 +53,21 @@ export function Sec22About() {
 
       <H3 id="about-license">License</H3>
       <p>
-        Frame/0 前端代码 MIT License 开源。具体许可证条款见仓库根目录 <code>LICENSE</code> 文件。
+        Frame/0 源代码以 AGPL-3.0 协议开源。具体许可证条款见仓库根目录 <code>LICENSE</code> 文件。
         生成的视频版权归用户所有，Frame/0 不主张任何权利。
       </p>
+
+      <H3 id="about-disclaimer">免责声明</H3>
+      <Callout type="warn" title="部署与使用责任">
+        <p>
+          本软件源代码由<strong>阿里云 · 兰柯</strong>独立开发并开源。任何组织或个人基于本项目进行的部署、运营及使用，
+          其产生的一切法律责任、数据安全义务及运营风险均由部署方自行承担，与原作者无关。
+        </p>
+        <p>
+          本软件按「现状」（AS-IS）提供，不附带任何明示或暗示的担保，包括但不限于对适销性、
+          特定用途适用性及不侵权的担保。详见 <code>LICENSE</code> 文件中的免责条款。
+        </p>
+      </Callout>
 
       <H3 id="about-version">版本</H3>
       <ul>

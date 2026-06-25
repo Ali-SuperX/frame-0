@@ -1,9 +1,10 @@
 "use client";
 
 /**
- * 全局页脚 —— 作者署名 + 联系邮箱 + AGPL-3.0 源码链接。
+ * 全局页脚 —— 作者署名 + 联系邮箱 + AGPL-3.0 源码链接 + 免责声明。
  *   - 署名 / 邮箱：作者归属与联系方式。
  *   - 源码链接：AGPL §13 合规（网络服务须向用户提供获取源码途径）兼代码指纹。
+ *   - 免责声明：部署与使用责任归于部署方。
  *
  * 行为：
  *   - 文档流页面（Manifest / Guide / Help / Archive 等）：滚动到底自然显示。
@@ -12,7 +13,7 @@
 export default function GlobalFooter() {
   return (
     <footer className="gfooter" aria-label="contact">
-      <span className="gfooter-text">★ 技术服务部 · 南海 TAM · 兰柯</span>
+      <span className="gfooter-text">阿里云 · 兰柯</span>
       <span aria-hidden="true" className="gfooter-sep">
         ｜
       </span>
@@ -30,6 +31,9 @@ export default function GlobalFooter() {
       >
         Source · AGPL-3.0
       </a>
+      <span className="gfooter-disclaimer">
+        免责声明：本软件源代码由兰柯开发并开源，平台的部署、运营及使用所产生的一切责任由部署方自行承担，与原作者无关。
+      </span>
       <style>{`
         .gfooter {
           display: flex;
@@ -51,6 +55,14 @@ export default function GlobalFooter() {
           text-decoration: none;
         }
         .gfooter-mail:hover { text-decoration: underline; }
+        .gfooter-disclaimer {
+          width: 100%;
+          text-align: center;
+          margin-top: 6px;
+          font-size: 10px;
+          opacity: 0.6;
+          line-height: 1.5;
+        }
         @media (max-width: 600px) {
           .gfooter { font-size: 10.5px; padding: 14px 12px; }
         }

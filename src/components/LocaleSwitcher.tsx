@@ -28,6 +28,7 @@ export default function LocaleSwitcher() {
         opacity: 0.85,
       }}
       aria-label="Language"
+      title={locale === "zh" ? "切换语言" : "Switch language"}
     >
       {routing.locales.map((l, i) => (
         <span key={l} style={{ display: "inline-flex", alignItems: "center" }}>

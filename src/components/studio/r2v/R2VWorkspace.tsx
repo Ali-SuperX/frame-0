@@ -50,7 +50,7 @@ export default function R2VWorkspace() {
           prefetch={false}
           href={helpHref}
           className="chrome-icon"
-          title={zh ? "帮助" : "Help"}
+          title={zh ? "帮助文档 (?)" : "Help docs (?)"}
           style={{ textDecoration: "none" }}
         >
           ?

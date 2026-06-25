@@ -60,7 +60,28 @@
     box-shadow: var(--hi);
     font-weight: 600;
   }
-  .chrome .right { display: flex; gap: 14px; justify-content: flex-end; align-items: center; }
+  .chrome .right { display: flex; gap: 10px; justify-content: flex-end; align-items: center; }
+  .chrome-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--paper-mute);
+    font-size: 13px;
+    line-height: 1;
+    cursor: pointer;
+    transition: color 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+    text-decoration: none;
+  }
+  .chrome-icon:hover {
+    color: var(--paper);
+    border-color: var(--paper-dim);
+    background: color-mix(in oklab, var(--paper) 6%, transparent);
+  }
   .tag {
     display: inline-flex;
     align-items: center;

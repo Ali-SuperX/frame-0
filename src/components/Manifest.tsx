@@ -36,7 +36,7 @@ export default function Manifest() {
         </div>
         <TopNav />
         <div className="right">
-          <Link href={helpHref} className="chrome-icon" title={zh ? "帮助" : "Help"} style={{ textDecoration: "none" }}>?</Link>
+          <Link href={helpHref} className="chrome-icon" title={zh ? "帮助文档 (?)" : "Help docs (?)"} style={{ textDecoration: "none" }}>?</Link>
           <LocaleSwitcher />
           <Link
             href={studioHref}
