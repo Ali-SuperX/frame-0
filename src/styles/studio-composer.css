@@ -1,0 +1,856 @@
+/* =========================================================
+   STUDIO COMPOSER · 右侧栏自包含大气对话框
+   设计参考：ChatGPT / Cursor 的 composer —— 参数全收进输入框
+   原则：一个对话框搞定一切 · 参数 chip 化 · 极简无冗余线框
+   100% 沿用平台 tokens
+   ========================================================= */
+
+.params-pane.cmp {
+  display: flex;
+  flex-direction: column;
+  background: var(--ink);
+  overflow: hidden;
+  padding: 14px;
+  gap: 12px;
+}
+
+/* ── 顶部：模式 chip + 模型 ── */
+.cmp-head {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.cmp-modes {
+  display: flex;
+  gap: 2px;
+  background: var(--ink-2);
+  padding: 3px;
+  border-radius: 7px;
+}
+.cmp-mode {
+  flex: 1;
+  padding: 8px 10px;
+  background: transparent;
+  border: none;
+  border-radius: 5px;
+  color: var(--paper-mute);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.cmp-mode {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.cmp-mode:hover:not(:disabled) { color: var(--paper); }
+.cmp-mode.on {
+  background: var(--paper);
+  color: var(--ink);
+}
+.cmp-mode:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.cmp-mode-soon {
+  margin-left: 6px;
+  padding: 1.5px 6px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--paper-mute);
+  font-size: 8px;
+  letter-spacing: 0.03em;
+  text-transform: none;
+}
+
+/* ══════════════════════════════════════════
+   核心：自包含大气对话框
+   ══════════════════════════════════════════ */
+.cmp-box {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--ink-2);
+  border-radius: 14px;
+  padding: 6px;
+  transition: box-shadow 0.2s ease;
+}
+.cmp-box:focus-within {
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--accent) 50%, transparent);
+}
+
+/* 参考图区 */
+.cmp-box-refs {
+  flex-shrink: 0;
+  padding: 8px 8px 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* 文字输入 —— 对话框核心，自动撑满 */
+.cmp-box-input {
+  flex: 1;
+  min-height: 120px;
+  background: transparent;
+  border: none;
+  outline: none;
+  resize: none;
+  color: var(--paper);
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 15.5px;
+  line-height: 1.55;
+  padding: 12px 14px;
+}
+.cmp-box-input::placeholder {
+  color: var(--paper-mute);
+  opacity: 0.55;
+}
+
+/* ── 参数 chip 工具栏 ── */
+.cmp-box-chips {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 6px 8px;
+}
+
+/* 单个 chip —— 原生 details，点击展开 */
+.cmp-chip {
+  position: relative;
+}
+.cmp-chip > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  background: var(--ink-3);
+  border-radius: 999px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  transition: background 0.14s ease;
+  white-space: nowrap;
+}
+.cmp-chip > summary::-webkit-details-marker { display: none; }
+.cmp-chip > summary:hover {
+  background: color-mix(in oklab, var(--accent) 16%, var(--ink-3));
+}
+.cmp-chip[open] > summary {
+  background: color-mix(in oklab, var(--accent) 22%, var(--ink-3));
+}
+.cmp-chip-k {
+  color: var(--paper-mute);
+  text-transform: uppercase;
+  font-weight: 600;
+}
+.cmp-chip-v {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* chip 展开浮层 */
+.cmp-chip-pop {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  z-index: 30;
+  min-width: 180px;
+  padding: 10px;
+  background: var(--ink-3);
+  border-radius: 10px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
+  animation: cmp-pop-in 0.14s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.cmp-chip-pop--wide { min-width: 260px; }
+@keyframes cmp-pop-in {
+  from { opacity: 0; transform: translateY(4px); }
+}
+
+/* ── 对话框底部操作行 ── */
+.cmp-box-foot {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 8px 6px;
+}
+.cmp-box-foot-l,
+.cmp-box-foot-r {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* 轻量图标按钮 */
+.cmp-ico-btn {
+  background: transparent;
+  border: none;
+  color: var(--paper-mute);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 600;
+  padding: 6px 9px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.14s ease;
+}
+.cmp-ico-btn:hover:not(:disabled) {
+  background: var(--ink-3);
+  color: var(--accent);
+}
+.cmp-ico-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.cmp-box-cost {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--accent);
+  font-weight: 600;
+  margin-left: 4px;
+  font-variant-numeric: tabular-nums;
+}
+/* 折扣时的原价划线 */
+.cmp-cost-orig {
+  margin-right: 5px;
+  color: var(--paper-mute);
+  font-weight: 400;
+  text-decoration: line-through;
+  opacity: 0.75;
+}
+
+/* ── 促销折扣 —— 价格旁的折扣配置 ── */
+.cmp-discount {
+  position: relative;
+  flex-shrink: 0;
+}
+.cmp-discount > summary {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  background: var(--ink-3);
+  border-radius: 999px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  color: var(--paper-mute);
+  transition: background 0.14s ease, color 0.14s ease;
+}
+.cmp-discount > summary::-webkit-details-marker {
+  display: none;
+}
+.cmp-discount > summary:hover {
+  color: var(--paper);
+}
+.cmp-discount > summary.on {
+  color: var(--accent);
+  font-weight: 600;
+}
+.cmp-discount > summary.on,
+.cmp-discount[open] > summary {
+  background: color-mix(in oklab, var(--accent) 22%, var(--ink-3));
+}
+.cmp-discount-pop {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  min-width: 208px;
+}
+.cmp-discount-head {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--paper-mute);
+}
+.cmp-discount-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.cmp-discount-preset {
+  padding: 5px 10px;
+  background: var(--ink-2);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--paper-dim);
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.cmp-discount-preset:hover {
+  background: var(--ink);
+  color: var(--paper);
+}
+.cmp-discount-preset.on {
+  background: var(--accent);
+  color: var(--ink);
+  font-weight: 600;
+}
+.cmp-discount-custom {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--paper-mute);
+}
+.cmp-discount-custom input {
+  width: 54px;
+  padding: 4px 7px;
+  background: var(--ink-2);
+  border: none;
+  border-radius: 5px;
+  outline: none;
+  color: var(--paper);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+/* 生成按钮 —— 对话框内主操作。
+   可执行时：提亮的 accent + 辉光，明确「可点」；
+   不可执行时：中性灰、无辉光 —— 两态一眼区分。 */
+.cmp-send {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 16px;
+  height: 34px;
+  background: var(--gradient-cta);
+  color: var(--cta-ink);
+  border: none;
+  border-radius: 8px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: var(--shadow-cta);
+}
+.cmp-send:hover:not(:disabled) {
+  filter: brightness(1.05);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-cta-hover);
+}
+.cmp-send:active:not(:disabled) {
+  transform: translateY(0);
+}
+.cmp-send:disabled {
+  background: var(--ink-3);
+  color: var(--paper-mute);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+/* 必填缺失的"软禁用"态：仍可点击（弹 toast 说缺啥），但视觉同 disabled */
+.cmp-send-blocked {
+  background: var(--ink-3);
+  color: var(--paper-mute);
+  box-shadow: none;
+  cursor: help;
+}
+.cmp-send-blocked:hover {
+  background: color-mix(in oklab, var(--accent) 20%, var(--ink-3));
+  color: var(--paper-dim);
+}
+
+/* ── 画幅比例可视化 —— 矩形形状即比例，不用读数字 ── */
+.ratio-glyph {
+  display: inline-block;
+  flex-shrink: 0;
+  border: 1.5px solid var(--accent);
+  border-radius: 2px;
+}
+.ratio-opts {
+  display: flex;
+  gap: 6px;
+}
+.ratio-opt {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  height: 66px;
+  background: var(--ink-2);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.14s ease;
+}
+.ratio-opt:hover {
+  background: var(--ink-3);
+}
+.ratio-opt .ratio-glyph {
+  border-color: var(--paper-mute);
+  transition: border-color 0.14s ease;
+}
+.ratio-opt.on {
+  background: color-mix(in oklab, var(--accent) 14%, var(--ink-2));
+}
+.ratio-opt.on .ratio-glyph {
+  border-color: var(--accent);
+}
+.ratio-opt-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  color: var(--paper-mute);
+}
+.ratio-opt.on .ratio-opt-label {
+  color: var(--accent);
+}
+.cmp-send-arrow {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+/* ── 导演台入口 —— 对话框下方极简条 ── */
+.cmp-director {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: linear-gradient(
+    to right,
+    color-mix(in oklab, var(--accent) 9%, var(--ink-2)),
+    var(--ink-2)
+  );
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.18s ease;
+  text-align: left;
+}
+.cmp-director:hover {
+  background: linear-gradient(
+    to right,
+    color-mix(in oklab, var(--accent) 16%, var(--ink-2)),
+    var(--ink-2)
+  );
+}
+.cmp-director-icon { font-size: 15px; flex-shrink: 0; }
+.cmp-director-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.cmp-director-text strong {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--paper);
+}
+.cmp-director-text small {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.05em;
+  color: var(--paper-mute);
+}
+.cmp-director-arrow {
+  color: var(--accent);
+  font-size: 13px;
+  transition: transform 0.18s ease;
+}
+.cmp-director:hover .cmp-director-arrow {
+  transform: translateX(3px);
+}
+
+/* ── chip 浮层内的参数控件微调 —— 复用 pf-* 但更紧凑 ── */
+.cmp-chip-pop .pf-segments {
+  flex-direction: column;
+  gap: 3px;
+}
+.cmp-chip-pop .pf-seg {
+  width: 100%;
+  text-align: left;
+}
+.cmp-chip-pop .pf-input {
+  font-size: 12px;
+}
+
+/* ── 「更多」浮层 —— 高级参数竖向堆叠 ── */
+.cmp-chip-pop--stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.cmp-adv-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.cmp-adv-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--paper-mute);
+}
+
+/* ── 模型选择器 —— 收在底栏右下角的小下拉，浮层向上弹 ── */
+.cmp-model {
+  position: relative;
+  flex-shrink: 0;
+}
+.cmp-model > summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 200px;
+  padding: 6px 9px;
+  background: var(--ink-3);
+  border-radius: 6px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.cmp-model > summary::-webkit-details-marker {
+  display: none;
+}
+.cmp-model > summary:hover {
+  background: color-mix(in oklab, var(--accent) 14%, var(--ink-3));
+}
+.cmp-model[open] > summary {
+  background: color-mix(in oklab, var(--accent) 20%, var(--ink-3));
+}
+.cmp-model-k {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--paper-mute);
+}
+.cmp-model-v {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  color: var(--paper-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cmp-model-caret {
+  flex-shrink: 0;
+  font-size: 8px;
+  color: var(--paper-mute);
+  transition: transform 0.16s ease;
+}
+.cmp-model[open] .cmp-model-caret {
+  transform: rotate(180deg);
+}
+/* 下拉浮层 —— 绝对定位，从触发器下方向下弹（位于左上角）*/
+.cmp-model-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 30;
+  width: 224px;
+  padding: 4px;
+  background: var(--ink-2);
+  border-radius: 10px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+  animation: cmp-pop-in 0.14s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ══════════════════════════════════════════
+   多图上传托盘 —— R2V 角色参考图 / i2i 输入图
+   一个区域批量上传 · 缩略图平铺 · 逐张可删
+   ══════════════════════════════════════════ */
+.mmt {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.mmt-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.mmt-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--paper-mute);
+}
+.mmt-head-r {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.mmt-count {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--paper-mute);
+  font-variant-numeric: tabular-nums;
+}
+.mmt-count.full {
+  color: var(--accent);
+}
+.mmt-clear {
+  padding: 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  color: var(--paper-mute);
+}
+.mmt-clear:hover {
+  color: var(--accent);
+}
+
+/* 缩略图托盘 */
+.mmt-tray {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px;
+  background: var(--ink-3);
+  border-radius: 9px;
+  transition: box-shadow 0.14s ease;
+}
+.mmt-tray.over {
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+}
+/* 空态：托盘退化为一条整宽上传区，无背景 */
+.mmt-tray.empty {
+  padding: 0;
+  background: transparent;
+}
+
+/* 单张缩略图 */
+.mmt-tile {
+  position: relative;
+  width: 60px;
+  height: 60px;
+  flex-shrink: 0;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--ink);
+}
+.mmt-tile.zoom {
+  cursor: zoom-in;
+}
+.mmt-tile.zoom:hover .mmt-tile-media {
+  opacity: 0.82;
+}
+.mmt-tile-media {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: opacity 0.12s ease;
+}
+.mmt-tile-ph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  font-size: 18px;
+  color: var(--paper-mute);
+  background: rgba(255, 255, 255, 0.025);
+}
+/* IDB rehydrate 中 —— 给个温和的脉冲提示这是临时状态 */
+.mmt-tile-ph-loading {
+  animation: mmt-ph-pulse 1.2s ease-in-out infinite;
+}
+@keyframes mmt-ph-pulse {
+  0%, 100% { opacity: 0.45; }
+  50%      { opacity: 1; }
+}
+/* 加载错误 —— 红黄警告色,提示用户该 tile 不可用 */
+.mmt-tile-ph-error {
+  color: #fc8181;
+  background: rgba(252, 129, 129, 0.08);
+}
+/* 源彻底丢失 —— 灰色"图缺失"提示,引导用户重新上传 */
+.mmt-tile-ph-missing {
+  color: var(--paper-mute);
+  background: rgba(255, 255, 255, 0.03);
+  cursor: help;
+}
+/* 角色标签 —— 底部渐变压字，对齐 prompt 里的 character1 语法 */
+.mmt-tile-tag {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 6px 3px 2px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.85), transparent);
+  font-family: var(--font-mono);
+  font-size: 7.5px;
+  letter-spacing: 0.01em;
+  text-align: center;
+  color: var(--paper);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* 删除角标 —— hover 才显形 */
+.mmt-tile-x {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  background: rgba(0, 0, 0, 0.72);
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  opacity: 0;
+  transition: opacity 0.12s ease, background 0.12s ease;
+}
+.mmt-tile:hover .mmt-tile-x {
+  opacity: 1;
+}
+.mmt-tile-x:hover {
+  background: var(--accent);
+  color: var(--ink);
+}
+
+/* 上传中占位 */
+.mmt-tile-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.mmt-spin {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid var(--ink-3);
+  border-top-color: var(--accent);
+  animation: mmt-spin 0.7s linear infinite;
+}
+@keyframes mmt-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 添加 tile */
+.mmt-add {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  height: 60px;
+  padding: 0 14px;
+  background: transparent;
+  border: 1.5px dashed var(--line);
+  border-radius: 6px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: border-color 0.14s ease, background 0.14s ease;
+}
+.mmt-add:hover {
+  border-color: var(--accent);
+  background: color-mix(in oklab, var(--accent) 8%, transparent);
+}
+/* 空态：整宽、横排、略高，明确是上传入口 */
+.mmt-tray.empty .mmt-add {
+  width: 100%;
+  height: 68px;
+  flex-direction: row;
+  gap: 8px;
+}
+.mmt-add-plus {
+  font-family: var(--font-sans);
+  font-size: 17px;
+  line-height: 1;
+  color: var(--accent);
+}
+.mmt-add-label {
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.03em;
+  color: var(--paper-mute);
+  white-space: nowrap;
+}
+
+/* URL 兜底输入 */
+.mmt-url {
+  display: flex;
+  gap: 5px;
+}
+.mmt-url-input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 9px;
+  background: var(--ink-3);
+  border: none;
+  border-radius: 6px;
+  outline: none;
+  color: var(--paper);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+.mmt-url-input::placeholder {
+  color: var(--paper-mute);
+}
+.mmt-url-set {
+  flex-shrink: 0;
+  padding: 0 11px;
+  background: var(--ink-3);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--paper-dim);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.05em;
+  transition: color 0.12s ease;
+}
+.mmt-url-set:hover:not(:disabled) {
+  color: var(--accent);
+}
+.mmt-url-set:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.mmt-err {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  color: #d9706a;
+}

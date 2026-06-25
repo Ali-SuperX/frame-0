@@ -1,0 +1,47 @@
+# 单机一键起：docker compose up -d
+# 数据持久化在 ./data（项目根，与 .gitignore 一致）
+# env 在同目录 .env（.env 已被 .gitignore，不进 git）
+
+services:
+  frame-0:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: frame-0:latest
+    container_name: frame-0
+    restart: unless-stopped
+
+    ports:
+      - "${APP_PORT:-3000}:3000"
+
+    environment:
+      NODE_ENV: production
+      # 全部可选 —— 留空则强制每个访客在网页设置里自带 key（更安全）
+      DASHSCOPE_API_KEY: ${DASHSCOPE_API_KEY:-}
+      REDDIT_CLIENT_ID: ${REDDIT_CLIENT_ID:-}
+      REDDIT_CLIENT_SECRET: ${REDDIT_CLIENT_SECRET:-}
+      REDDIT_USER_AGENT: ${REDDIT_USER_AGENT:-}
+
+    volumes:
+      # state / uploads / videos / 去重缓存 —— 容器重启不丢
+      - ./data:/app/data
+
+    healthcheck:
+      # /api/health —— 轻量 JSON，不渲染首页 + force-dynamic 绕开缓存
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+    # Next 16.2 standalone 实测常驻 200-400MB；预留 limit 防止失控
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 256M

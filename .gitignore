@@ -1,0 +1,54 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# persisted state + generated videos + uploads + upload dedup cache + temp work dirs
+/data/
+# 已生成的 HH demo 视频资产（553MB+，不进 git；如需共享走 OSS / 单独同步）
+/public/hh-cases/
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+.env*
+# .env.example 是模板,要进 git 让别人参考
+!.env.example
+
+# Claude Code 临时工作目录
+.claude-tmp/
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+.playwright-mcp/
+deploy/k8s/secret.yaml
+.playwright-mcp

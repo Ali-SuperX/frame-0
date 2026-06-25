@@ -1,0 +1,25 @@
+# ⚠️ 默认不启用（kustomization.yaml 里被注释掉了）。
+# 项目用本地 /app/data 持久化 —— RWO 卷无法多副本挂载。启用 HPA 前必须先做：
+#   1. pvc.yaml 的 accessModes 改成 ReadWriteMany
+#   2. deployment.yaml 的 strategy.type 从 Recreate 改回 RollingUpdate
+#   3. 集群有支持 RWX 的 storageClass（NFS / CephFS / EFS / Longhorn）
+# 更彻底的方案：把 uploads/state 迁到外部（OSS / S3 / Redis / PG）。
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: frame-0
+  namespace: frame-0
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: frame-0
+  minReplicas: 1
+  maxReplicas: 3
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70

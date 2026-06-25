@@ -1,0 +1,47 @@
+{
+  "meta": {
+    "title": "FRAME/0 — 与机器共同导演",
+    "description": "会回答的影像。FRAME/0 不是提示词框，而是导演席 —— 一把让机器与你共椅而坐的椅子。",
+    "og_title": "FRAME/0 — Direct the unseen.",
+    "og_description": "AI 电影仪器。是导演，不是提示。"
+  },
+  "nav": {
+    "manifest": "宣言",
+    "studio": "工坊",
+    "archive": "资产库",
+    "enter_studio": "进入工坊"
+  },
+  "chrome": {
+    "rolling_badge": "百炼已连"
+  },
+  "hero": {
+    "kicker": "T/01 · 宣言",
+    "title_prefix": "Direct",
+    "title_article": "the",
+    "title_italic": "unseen.",
+    "lead": "FRAME/0 不是提示词盒子。它是导演席。你负责意图、节奏、情绪；机器负责像素、镜头、连续性。"
+  },
+  "pillars": {
+    "direction_kicker": "一 · 导演",
+    "direction_title": "Direction, not prompting.",
+    "direction_body": "你给意图、给情绪、给节奏。工具来拍。提示词是临时脚手架，不是语言。",
+    "continuity_kicker": "二 · 连续性",
+    "continuity_title": "Continuity is memory.",
+    "continuity_body": "人物、光线、时间在镜头之间保持一致。记忆不是彩蛋，是前提。",
+    "credit_kicker": "三 · 对比",
+    "credit_title": "Compare, decide, ship.",
+    "credit_body": "同一 prompt 横跨多家模型并排出片 —— 让你知道选哪家、改哪个参数。"
+  },
+  "archive": {
+    "kicker": "T/06 · 资产库",
+    "title_prefix": "The",
+    "title_italic": "Library,",
+    "title_suffix": "yours.",
+    "lead": "你生成的全部资产 —— 视频与图片。搜索 / 筛选 / 收藏，一键送回工坊复用。",
+    "mode_editorial": "编辑式",
+    "mode_grid": "网格",
+    "mode_strip": "胶片条",
+    "signed_by": "署名",
+    "c2pa": "已发布"
+  }
+}

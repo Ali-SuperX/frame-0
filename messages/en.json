@@ -1,0 +1,47 @@
+{
+  "meta": {
+    "title": "FRAME/0 — Co-direct with the machine",
+    "description": "Video that answers back. FRAME/0 isn't a prompt box — it's a director's chair.",
+    "og_title": "FRAME/0 — Direct the unseen.",
+    "og_description": "An AI film instrument. A director, not a prompt."
+  },
+  "nav": {
+    "manifest": "Manifest",
+    "studio": "Studio",
+    "archive": "Assets",
+    "enter_studio": "Enter Studio"
+  },
+  "chrome": {
+    "rolling_badge": "Bailian linked"
+  },
+  "hero": {
+    "kicker": "T/01 · Manifest",
+    "title_prefix": "Direct",
+    "title_article": "the",
+    "title_italic": "unseen.",
+    "lead": "FRAME/0 isn't a prompt box. It's a director's chair. You bring intent, pacing, mood; the machine handles pixels, lens, continuity."
+  },
+  "pillars": {
+    "direction_kicker": "I · Direction",
+    "direction_title": "Direction, not prompting.",
+    "direction_body": "You bring intent, mood, pacing. The tool shoots. Prompts are scaffolding, not the language.",
+    "continuity_kicker": "II · Continuity",
+    "continuity_title": "Continuity is memory.",
+    "continuity_body": "Characters, lighting, time stay consistent across shots. Memory isn't a bonus — it's the premise.",
+    "credit_kicker": "III · Compare",
+    "credit_title": "Compare, decide, ship.",
+    "credit_body": "Fan one prompt across models and see them side-by-side. Know which model, which params."
+  },
+  "archive": {
+    "kicker": "T/06 · Assets",
+    "title_prefix": "The",
+    "title_italic": "Library,",
+    "title_suffix": "yours.",
+    "lead": "Every asset you've generated — videos and images. Search, filter, favorite, send back to the studio in one click.",
+    "mode_editorial": "Editorial",
+    "mode_grid": "Grid",
+    "mode_strip": "Strip",
+    "signed_by": "Signed by",
+    "c2pa": "Published"
+  }
+}

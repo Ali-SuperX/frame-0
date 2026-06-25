@@ -1,0 +1,15 @@
+# kubectl apply -k deploy/k8s/  → 一键拉起 namespace + config + pvc + deployment + service + ingress
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: frame-0
+
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - pvc.yaml
+  - deployment.yaml
+  - service.yaml
+  - ingress.yaml
+  # - secret.yaml   # 从 secret.example.yaml 复制后启用
+  # - hpa.yaml      # 仅在卷切到 ReadWriteMany 之后启用

@@ -1,0 +1,787 @@
+/* ───────────────────────────────────────────────────────────
+   Stage · Cinema 原型 —— 「电影感沉浸创作」
+   核心理念：画面是绝对主角，工具退场。你在导一部片子，而不是填表。
+   类前缀 cn-（cinema），不与 sw-/sc-/stage- 冲突。
+   配色全部走 Molten Gallery token，无硬编码电光紫。
+   ─────────────────────────────────────────────────────────── */
+
+.cn-root {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  /* 影院黑：比常规容器更深，往纯黑压 */
+  background:
+    radial-gradient(120% 90% at 50% 38%,
+      color-mix(in oklab, var(--ink) 82%, transparent) 0%,
+      color-mix(in oklab, #000 72%, var(--ink)) 100%),
+    var(--ink);
+  color: var(--paper);
+  font-family: var(--font-sans);
+  overflow: hidden;
+  isolation: isolate;
+}
+
+/* 银幕暗角 + 极淡胶片颗粒，营造放映厅氛围 */
+.cn-root::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+  background:
+    radial-gradient(130% 100% at 50% 45%, transparent 55%, color-mix(in oklab, #000 60%, transparent) 100%);
+  mix-blend-mode: multiply;
+}
+
+/* ── 片头条 —— 弱化 chrome，只留剧名与必要动作 ── */
+.cn-header {
+  position: relative;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 18px 28px 14px;
+  flex: 0 0 auto;
+}
+.cn-title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.cn-title h1 {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-size: 30px;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  color: var(--paper);
+}
+.cn-title h1 .cn-mark {
+  color: color-mix(in oklab, var(--accent) 88%, var(--paper));
+}
+.cn-meta {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--paper-mute);
+}
+
+/* 演员表 —— 电影 cast 感 */
+.cn-cast {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex: 1 1 auto;
+  justify-content: center;
+  min-width: 0;
+  overflow: hidden;
+}
+.cn-cast-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--paper-dim);
+  white-space: nowrap;
+}
+.cn-cast-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  box-shadow: 0 0 8px color-mix(in oklab, var(--cn-dot, var(--accent)) 70%, transparent);
+  background: var(--cn-dot, var(--accent));
+  flex: 0 0 auto;
+}
+.cn-cast-role {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--paper-mute);
+  text-transform: uppercase;
+}
+
+.cn-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+.cn-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 34px;
+  padding: 0 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--edge);
+  background: color-mix(in oklab, var(--ink-3) 60%, transparent);
+  color: var(--paper-dim);
+  font-size: 13px;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease, color 0.16s ease;
+}
+.cn-btn:hover {
+  transform: translateY(-1px);
+  border-color: var(--edge-strong);
+  color: var(--paper);
+}
+.cn-btn svg { width: 15px; height: 15px; }
+.cn-btn-primary {
+  border-color: color-mix(in oklab, var(--accent) 50%, transparent);
+  background: linear-gradient(135deg,
+    color-mix(in oklab, var(--accent) 22%, var(--ink-3)) 0%,
+    color-mix(in oklab, var(--accent-2) 18%, var(--ink-3)) 100%);
+  color: var(--paper);
+}
+.cn-btn-primary:hover {
+  border-color: color-mix(in oklab, var(--accent) 75%, transparent);
+  box-shadow: 0 6px 22px color-mix(in oklab, var(--accent) 28%, transparent);
+}
+
+/* ── 中央舞台 —— 当前镜头的银幕 ── */
+.cn-stage {
+  position: relative;
+  z-index: 6;
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 64px 20px;
+  min-height: 0;
+}
+.cn-screen {
+  margin: 0;
+  width: min(76vw, 1120px);
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+}
+
+/* 银幕画面 —— 金描边 + 光晕，悬浮在影院黑中 */
+.cn-frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: color-mix(in oklab, var(--ink-2) 72%, #000);
+  border: 1px solid var(--edge-gold);
+  box-shadow:
+    0 0 0 1px color-mix(in oklab, #000 50%, transparent),
+    0 40px 120px color-mix(in oklab, #000 70%, transparent),
+    0 0 90px color-mix(in oklab, var(--accent) 12%, transparent);
+}
+/* 画面层 —— 承载真实图 / storyboard 切片，单独缩放做 Ken Burns */
+.cn-frame-img {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-repeat: no-repeat;
+  background-position: center;
+  transform-origin: 50% 50%;
+  transition: background-position 0.05s linear;
+}
+/* 画面内暗角，强化电影氛围 */
+.cn-frame::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    radial-gradient(120% 120% at 50% 42%, transparent 58%, color-mix(in oklab, #000 55%, transparent) 100%),
+    linear-gradient(to top, color-mix(in oklab, #000 45%, transparent) 0%, transparent 28%);
+}
+/* 放映态：Ken Burns 缓推（只缩放画面层，叠加信息不动）*/
+.cn-frame-img.is-fade { animation: cn-frame-fade 0.55s ease; }
+.cn-frame-img.is-playing { animation: cn-kenburns 6.5s ease-out forwards; }
+.cn-frame-img.is-fade.is-playing { animation: cn-frame-fade 0.55s ease, cn-kenburns 6.5s ease-out forwards; }
+@keyframes cn-kenburns {
+  from { transform: scale(1); }
+  to   { transform: scale(1.08); }
+}
+@keyframes cn-frame-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* 场记板 slate */
+.cn-slate {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 11px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in oklab, #000 62%, transparent);
+  backdrop-filter: blur(6px);
+  border: 1px solid color-mix(in oklab, var(--paper) 12%, transparent);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--paper-dim);
+}
+.cn-slate b {
+  color: color-mix(in oklab, var(--accent) 85%, var(--paper));
+  font-weight: 600;
+  letter-spacing: 0.1em;
+}
+.cn-slate .cn-sep { color: color-mix(in oklab, var(--paper) 28%, transparent); }
+.cn-slate-move { color: color-mix(in oklab, var(--accent) 88%, var(--paper)); font-weight: 600; }
+
+/* 右上静态时长角标（取景器信息，不闪烁）*/
+.cn-gauge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 3;
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in oklab, #000 50%, transparent);
+  backdrop-filter: blur(6px);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--paper-dim);
+}
+/* 取景安全框 —— 克制的电影取景器感 */
+.cn-frame-corners {
+  position: absolute;
+  inset: 16px;
+  z-index: 2;
+  pointer-events: none;
+  border: 1px solid color-mix(in oklab, var(--paper) 11%, transparent);
+  border-radius: 3px;
+}
+.cn-frame-corners::before,
+.cn-frame-corners::after {
+  content: "";
+  position: absolute;
+  width: 15px;
+  height: 15px;
+  border: 1.5px solid color-mix(in oklab, var(--paper) 58%, transparent);
+}
+.cn-frame-corners::before { top: -1px; left: -1px; border-right: 0; border-bottom: 0; }
+.cn-frame-corners::after { bottom: -1px; right: -1px; border-left: 0; border-top: 0; }
+
+/* 镜头序号水印 —— 大号 serif，电影分镜感 */
+.cn-frame-idx {
+  position: absolute;
+  left: 16px;
+  bottom: 10px;
+  z-index: 2;
+  font-family: var(--font-serif);
+  font-size: 64px;
+  line-height: 0.8;
+  color: color-mix(in oklab, var(--paper) 16%, transparent);
+  pointer-events: none;
+  user-select: none;
+}
+
+/* 电影字幕 —— narration / 台词 */
+.cn-sub {
+  max-width: 80%;
+  text-align: center;
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.cn-sub-text {
+  font-family: var(--font-serif);
+  font-size: 23px;
+  line-height: 1.45;
+  color: color-mix(in oklab, var(--paper) 94%, transparent);
+  text-shadow: 0 2px 18px color-mix(in oklab, #000 80%, transparent);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.cn-sub-text.is-line { font-style: italic; }
+.cn-spk {
+  font-style: normal;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--cn-spk, var(--accent));
+  margin-right: 10px;
+  vertical-align: middle;
+}
+
+/* 左右切换 */
+.cn-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 7;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid var(--edge);
+  background: color-mix(in oklab, var(--ink-2) 70%, transparent);
+  backdrop-filter: blur(8px);
+  color: var(--paper-dim);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s ease, transform 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+.cn-stage:hover .cn-nav { opacity: 1; }
+.cn-nav:hover { color: var(--paper); border-color: var(--edge-strong); }
+.cn-nav.prev { left: 14px; }
+.cn-nav.next { right: 14px; }
+.cn-nav:disabled { opacity: 0 !important; cursor: default; }
+.cn-nav svg { width: 20px; height: 20px; }
+
+/* ── 底部胶片条 —— 故事板序列 ── */
+.cn-filmstrip {
+  position: relative;
+  z-index: 6;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 28px 20px;
+  overflow-x: auto;
+  border-top: 1px solid color-mix(in oklab, var(--paper) 6%, transparent);
+  background: color-mix(in oklab, #000 30%, var(--ink));
+  scrollbar-width: thin;
+}
+.cn-strip-label {
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--paper-mute);
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  padding: 4px 0;
+  opacity: 0.7;
+}
+.cn-cell {
+  position: relative;
+  flex: 0 0 auto;
+  width: 156px;
+  aspect-ratio: 16 / 9;
+  padding: 0;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  cursor: pointer;
+  background-image: url("/assets/storyboard-strip.png");
+  background-size: 300% 200%;
+  background-repeat: no-repeat;
+  border: 1px solid var(--edge);
+  filter: saturate(0.78) brightness(0.7);
+  transition: transform 0.18s ease, filter 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+.cn-cell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, color-mix(in oklab, #000 60%, transparent) 0%, transparent 50%);
+}
+.cn-cell:hover {
+  transform: translateY(-3px);
+  filter: saturate(0.92) brightness(0.85);
+  border-color: var(--edge-strong);
+}
+.cn-cell.is-current {
+  filter: saturate(1) brightness(1);
+  border-color: color-mix(in oklab, var(--accent) 80%, transparent);
+  box-shadow:
+    0 0 0 1px color-mix(in oklab, var(--accent) 60%, transparent),
+    0 8px 26px color-mix(in oklab, var(--accent) 22%, transparent);
+}
+.cn-cell-idx {
+  position: absolute;
+  top: 6px;
+  left: 8px;
+  z-index: 2;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--paper);
+  text-shadow: 0 1px 4px #000;
+}
+.cn-cell-dur {
+  position: absolute;
+  bottom: 6px;
+  right: 8px;
+  z-index: 2;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: color-mix(in oklab, var(--paper) 82%, transparent);
+  text-shadow: 0 1px 4px #000;
+}
+.cn-cell-add {
+  flex: 0 0 auto;
+  width: 156px;
+  aspect-ratio: 16 / 9;
+  display: grid;
+  place-items: center;
+  gap: 6px;
+  border-radius: var(--radius-md);
+  border: 1px dashed color-mix(in oklab, var(--paper) 16%, transparent);
+  background: color-mix(in oklab, var(--ink-2) 40%, transparent);
+  color: var(--paper-mute);
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color 0.18s ease, color 0.18s ease, background 0.18s ease;
+}
+.cn-cell-add:hover {
+  border-color: color-mix(in oklab, var(--accent) 55%, transparent);
+  color: var(--paper-dim);
+  background: color-mix(in oklab, var(--accent) 6%, transparent);
+}
+.cn-cell-add svg { width: 18px; height: 18px; }
+
+/* ── 示例片标识 ── */
+.cn-demo-badge {
+  margin-left: 10px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in oklab, var(--accent) 40%, transparent);
+  background: color-mix(in oklab, var(--accent) 12%, transparent);
+  color: color-mix(in oklab, var(--accent) 90%, var(--paper));
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+/* ── 空态创作引导 ── */
+.cn-demo-cta {
+  position: relative;
+  z-index: 6;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 12px 24px;
+  font-family: var(--font-serif);
+  font-size: 16px;
+  color: var(--paper-dim);
+  background: linear-gradient(to top, color-mix(in oklab, var(--accent) 7%, transparent), transparent);
+}
+.cn-demo-cta .cn-btn { font-family: var(--font-sans); }
+
+/* ── 待出图占位 ── */
+.cn-frame.is-pending {
+  background: repeating-linear-gradient(
+    45deg,
+    color-mix(in oklab, var(--ink-2) 90%, #000) 0 14px,
+    color-mix(in oklab, var(--ink-3) 55%, var(--ink)) 14px 28px
+  );
+}
+.cn-pending {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 28px;
+  text-align: center;
+}
+.cn-pending-tag {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--paper-mute);
+  padding: 5px 12px;
+  border: 1px dashed color-mix(in oklab, var(--paper) 22%, transparent);
+  border-radius: var(--radius-sm);
+}
+.cn-pending-prompt {
+  margin: 0;
+  max-width: 72%;
+  font-family: var(--font-serif);
+  font-size: 17px;
+  line-height: 1.5;
+  color: var(--paper-dim);
+}
+
+/* 胶片条空白格（真实分镜未出图）*/
+.cn-cell.is-blank {
+  background: color-mix(in oklab, var(--ink-2) 80%, #000);
+  background-image: none !important;
+}
+
+.cn-sub-muted { color: var(--paper-mute); font-style: normal; opacity: 0.7; }
+
+/* 银幕投影光锥（顶部 spotlight），画面浮于其上 */
+.cn-stage::before {
+  content: "";
+  position: absolute;
+  top: -4%;
+  left: 50%;
+  width: 64%;
+  height: 78%;
+  transform: translateX(-50%);
+  background: radial-gradient(56% 82% at 50% -2%, color-mix(in oklab, var(--accent) 17%, transparent), transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+.cn-screen { position: relative; z-index: 1; }
+
+/* ── 全屏放映 · 影院模式 ── */
+.cn-theater {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+  cursor: pointer;
+  animation: cn-fade 0.45s ease;
+}
+.cn-theater-frame {
+  position: relative;
+  width: min(94vw, 1680px);
+  aspect-ratio: 16 / 9;
+  max-height: 84vh;
+  overflow: hidden;
+  box-shadow: 0 0 160px color-mix(in oklab, var(--accent) 10%, transparent);
+}
+.cn-theater-frame .cn-frame-img { background-size: cover; }
+.cn-theater-sub {
+  position: absolute;
+  bottom: 8vh;
+  left: 0;
+  right: 0;
+  padding: 0 9vw;
+  text-align: center;
+  font-family: var(--font-serif);
+  font-size: clamp(20px, 2.4vw, 30px);
+  line-height: 1.42;
+  color: var(--paper);
+  text-shadow: 0 2px 26px #000, 0 0 4px #000;
+  pointer-events: none;
+  animation: cn-fade 0.6s ease;
+}
+.cn-theater-sub b { font-style: normal; margin-right: 12px; }
+.cn-theater-bar {
+  position: absolute;
+  bottom: 3.6vh;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 9px;
+  cursor: default;
+}
+.cn-theater-pip {
+  width: 26px;
+  height: 3px;
+  border-radius: 2px;
+  background: color-mix(in oklab, var(--paper) 22%, transparent);
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+.cn-theater-pip:hover { background: color-mix(in oklab, var(--paper) 48%, transparent); }
+.cn-theater-pip.on { background: var(--accent); transform: scaleY(1.7); }
+.cn-theater-hint {
+  position: absolute;
+  top: 3vh;
+  right: 3vw;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--paper-mute);
+  pointer-events: none;
+}
+@keyframes cn-fade { from { opacity: 0; } to { opacity: 1; } }
+
+/* 演员表按钮（点击选角）*/
+.cn-cast-btn {
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  padding: 6px 12px;
+  transition: border-color 0.16s ease, background 0.16s ease;
+}
+.cn-cast-btn:hover { border-color: var(--edge); background: color-mix(in oklab, var(--ink-3) 40%, transparent); }
+.cn-cast-empty { color: var(--paper-mute); font-size: 13px; }
+.cn-actions-sep { width: 1px; height: 18px; background: var(--line); margin: 0 3px; }
+
+/* AI 编剧抽屉 */
+.cn-drawer {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: color-mix(in oklab, #000 58%, transparent);
+  animation: cn-fade 0.25s ease;
+}
+.cn-drawer-panel {
+  position: relative;
+  width: min(920px, 94vw);
+  max-height: 82vh;
+  overflow: auto;
+  background: var(--ink-2);
+  border: 1px solid var(--line);
+  border-bottom: 0;
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  padding: 20px;
+  box-shadow: var(--shadow);
+  animation: cn-rise 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes cn-rise { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+.cn-drawer-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 2;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid var(--edge);
+  background: color-mix(in oklab, var(--ink-3) 60%, transparent);
+  color: var(--paper-dim);
+  cursor: pointer;
+  font-size: 14px;
+  transition: color 0.16s ease, border-color 0.16s ease;
+}
+.cn-drawer-close:hover { color: var(--paper); border-color: var(--edge-strong); }
+
+/* 批量生成进度条 */
+.cn-batchbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 95;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 24px;
+  background: color-mix(in oklab, var(--ink-2) 96%, transparent);
+  border-top: 1px solid color-mix(in oklab, var(--accent) 30%, var(--line));
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--paper-dim);
+  animation: cn-fade 0.25s ease;
+}
+.cn-batchbar-track { flex: 1; height: 3px; border-radius: 2px; background: color-mix(in oklab, var(--paper) 12%, transparent); overflow: hidden; }
+.cn-batchbar-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-2)); transition: width 0.3s ease; }
+
+/* toast */
+.cn-toast {
+  position: fixed;
+  bottom: 26px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 110;
+  padding: 10px 18px;
+  border-radius: var(--radius-md);
+  background: var(--ink-3);
+  border: 1px solid var(--line);
+  color: var(--paper);
+  font-size: 13px;
+  box-shadow: var(--shadow);
+  animation: cn-fade 0.3s ease;
+}
+
+/* ── 所见即所编 · 编辑态 ── */
+/* slate 行内编辑控件 */
+.cn-slate-sel,
+.cn-slate-num {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--paper);
+  background: color-mix(in oklab, #000 42%, transparent);
+  border: 1px solid color-mix(in oklab, var(--paper) 20%, transparent);
+  border-radius: 3px;
+  padding: 1px 4px;
+  cursor: pointer;
+}
+.cn-slate-sel:hover,
+.cn-slate-num:hover { border-color: color-mix(in oklab, var(--accent) 55%, transparent); }
+.cn-slate-num { width: 46px; }
+.cn-slate-sel option { background: var(--ink-2); color: var(--paper); }
+
+/* 画面操作工具条（hover 或待出图时显现）*/
+.cn-frame-tools {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  z-index: 3;
+  display: flex;
+  gap: 8px;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.cn-frame:hover .cn-frame-tools,
+.cn-frame.is-pending .cn-frame-tools { opacity: 1; transform: none; }
+.cn-tool-btn {
+  height: 30px;
+  padding: 0 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--edge-strong);
+  background: color-mix(in oklab, #000 55%, transparent);
+  backdrop-filter: blur(8px);
+  color: var(--paper);
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color 0.16s ease, background 0.16s ease;
+}
+.cn-tool-btn:hover { border-color: color-mix(in oklab, var(--accent) 60%, transparent); }
+.cn-tool-btn:disabled { opacity: 0.5; cursor: default; }
+.cn-tool-btn.primary {
+  border-color: color-mix(in oklab, var(--accent) 55%, transparent);
+  background: linear-gradient(135deg, color-mix(in oklab, var(--accent) 32%, var(--ink-3)), color-mix(in oklab, var(--accent-2) 24%, var(--ink-3)));
+}
+
+/* 字幕可编辑 */
+.cn-sub-text.is-editable { cursor: text; border-radius: var(--radius-sm); padding: 2px 10px; transition: background 0.16s ease; }
+.cn-sub-text.is-editable:hover { background: color-mix(in oklab, var(--paper) 7%, transparent); }
+.cn-sub-add { color: var(--paper-mute); font-style: normal; }
+.cn-sub-edit {
+  width: min(72vw, 780px);
+  font-family: var(--font-serif);
+  font-size: 22px;
+  line-height: 1.45;
+  text-align: center;
+  color: var(--paper);
+  background: color-mix(in oklab, var(--ink-2) 72%, transparent);
+  border: 1px solid color-mix(in oklab, var(--accent) 45%, transparent);
+  border-radius: var(--radius-md);
+  padding: 8px 14px;
+  resize: none;
+  outline: none;
+}
+.cn-muted { opacity: 0.6; }
+
+@media (max-width: 980px) {
+  .cn-screen { width: 92vw; }
+  .cn-cast { display: none; }
+  .cn-stage { padding-inline: 28px; }
+}

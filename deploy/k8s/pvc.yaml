@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: frame-0-data
+  namespace: frame-0
+spec:
+  # 单副本部署用 ReadWriteOnce 即可。
+  # 要 HPA 水平扩展请改 ReadWriteMany（要求集群有 NFS / CephFS / EFS / Longhorn 等 RWX 卷支持）。
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  # storageClassName: standard   # 按集群实际填；不填走默认 sc

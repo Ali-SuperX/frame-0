@@ -1,0 +1,2445 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>HappyHorse 1.0 · 视频提示词全指南</title>
+<meta name="description" content="阿里巴巴 ATH 团队 HappyHorse 1.0 视频模型 Prompt 优化全指南，V3.0 — 30+ 客户验证、38 个最佳实践案例。" />
+
+<style>
+/* ─────────────────────────────────────────────
+   设计令牌
+   ───────────────────────────────────────────── */
+:root {
+  --bg: #08080d;
+  --bg-elev: #0e0e16;
+  --bg-card: rgba(255, 255, 255, 0.025);
+  --bg-card-hover: rgba(255, 255, 255, 0.05);
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.18);
+  --text: #f5f5f7;
+  --text-dim: rgba(245, 245, 247, 0.62);
+  --text-faint: rgba(245, 245, 247, 0.38);
+
+  --accent-1: #b794f6;    /* 紫 */
+  --accent-2: #63b3ed;    /* 蓝 */
+  --accent-3: #f6ad55;    /* 金 */
+  --accent-4: #fc8181;    /* 红 */
+  --accent-5: #68d391;    /* 绿 */
+
+  --grad-hero: linear-gradient(135deg, #b794f6 0%, #63b3ed 50%, #68d391 100%);
+  --grad-card: linear-gradient(135deg, rgba(183,148,246,0.12) 0%, rgba(99,179,237,0.05) 100%);
+  --grad-warm: linear-gradient(135deg, #f6ad55 0%, #fc8181 100%);
+
+  --shadow-soft: 0 2px 20px rgba(0,0,0,0.4);
+  --shadow-glow: 0 0 40px rgba(183,148,246,0.15);
+
+  --radius-sm: 6px;
+  --radius: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+}
+
+/* ─────────────────────────────────────────────
+   reset
+   ───────────────────────────────────────────── */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", "Microsoft YaHei", "Segoe UI", Roboto, sans-serif;
+  font-size: 15px;
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: 0.005em;
+  overflow-x: hidden;
+}
+img, svg { max-width: 100%; display: block; }
+a { color: inherit; text-decoration: none; }
+code, pre { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+
+/* ─────────────────────────────────────────────
+   背景光晕
+   ───────────────────────────────────────────── */
+body::before, body::after {
+  content: "";
+  position: fixed;
+  pointer-events: none;
+  z-index: 0;
+  width: 60vw;
+  height: 60vw;
+  border-radius: 50%;
+  filter: blur(120px);
+  opacity: 0.18;
+}
+body::before {
+  background: radial-gradient(circle, var(--accent-1), transparent 70%);
+  top: -20vw;
+  left: -20vw;
+}
+body::after {
+  background: radial-gradient(circle, var(--accent-2), transparent 70%);
+  bottom: -20vw;
+  right: -20vw;
+}
+
+/* ─────────────────────────────────────────────
+   导航
+   ───────────────────────────────────────────── */
+.nav {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  background: rgba(8, 8, 13, 0.6);
+  border-bottom: 1px solid var(--border);
+}
+.nav-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 14px 32px;
+  display: flex;
+  align-items: center;
+  gap: 32px;
+}
+.nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  text-decoration: none;
+  color: inherit;
+  transition: opacity 0.15s;
+}
+.nav-brand:hover { opacity: 0.78; }
+.nav-brand .brand-back {
+  font-size: 18px;
+  color: var(--text-dim);
+  font-weight: 400;
+  line-height: 1;
+}
+/* 主页同款 logo —— italic serif + 紫斜杠 + sans-serif 小标签 */
+.nav-brand .logo {
+  font-family: "Times New Roman", Georgia, serif;
+  font-style: italic;
+  font-size: 22px;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  line-height: 1;
+  text-transform: none;
+}
+.nav-brand .logo .slash {
+  color: oklch(0.72 0.17 40); /* 主页同款 terracotta accent */
+  font-style: normal;
+}
+.nav-brand .logo b {
+  font-style: normal;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif;
+  font-weight: 500;
+  font-size: 13px;
+  vertical-align: 6px;
+  margin-left: 2px;
+  letter-spacing: 0.18em;
+}
+.nav-links {
+  display: flex;
+  gap: 24px;
+  font-size: 13px;
+  color: var(--text-dim);
+  flex: 1;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.nav-links::-webkit-scrollbar { display: none; }
+.nav-links a {
+  white-space: nowrap;
+  transition: color 0.15s;
+}
+.nav-links a:hover { color: var(--text); }
+.nav-version {
+  font-size: 11px;
+  color: var(--text-faint);
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  flex-shrink: 0;
+}
+
+/* ─────────────────────────────────────────────
+   layout
+   ───────────────────────────────────────────── */
+.section {
+  position: relative;
+  z-index: 1;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 80px 32px;
+}
+.section-head {
+  margin-bottom: 48px;
+  max-width: 760px;
+}
+.section-tag {
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--accent-1);
+  font-weight: 600;
+  margin-bottom: 14px;
+}
+.section-title {
+  font-size: clamp(28px, 4vw, 44px);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  margin-bottom: 16px;
+}
+.section-lead {
+  font-size: 16px;
+  color: var(--text-dim);
+  max-width: 640px;
+}
+
+/* ─────────────────────────────────────────────
+   Hero
+   ───────────────────────────────────────────── */
+.hero {
+  padding: 120px 32px 80px;
+  max-width: 1200px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 1;
+}
+.hero-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: 30px;
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-bottom: 28px;
+  background: rgba(255,255,255,0.02);
+}
+.hero-eyebrow strong {
+  color: var(--accent-3);
+  font-weight: 600;
+}
+.hero h1 {
+  font-size: clamp(40px, 6vw, 76px);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.035em;
+  margin-bottom: 24px;
+}
+.hero h1 .grad {
+  background: var(--grad-hero);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.hero p.lead {
+  font-size: 20px;
+  color: var(--text-dim);
+  max-width: 720px;
+  line-height: 1.55;
+  margin-bottom: 40px;
+}
+.hero-cta {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 22px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.18s;
+  border: 1px solid transparent;
+}
+.btn-primary {
+  background: var(--text);
+  color: var(--bg);
+}
+.btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(255,255,255,0.18);
+}
+.btn-ghost {
+  border-color: var(--border-strong);
+  color: var(--text-dim);
+}
+.btn-ghost:hover {
+  border-color: var(--text-dim);
+  color: var(--text);
+}
+
+/* ─────────────────────────────────────────────
+   数据条
+   ───────────────────────────────────────────── */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  margin-top: 80px;
+}
+.stat {
+  background: var(--bg);
+  padding: 28px 20px;
+  text-align: center;
+}
+.stat-value {
+  font-size: clamp(28px, 3.5vw, 44px);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  background: var(--grad-hero);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  margin-bottom: 8px;
+}
+.stat-label {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+@media (max-width: 880px) {
+  .stats { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 520px) {
+  .stats { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ─────────────────────────────────────────────
+   通用 card 网格
+   ───────────────────────────────────────────── */
+.grid {
+  display: grid;
+  gap: 20px;
+}
+.grid-3 { grid-template-columns: repeat(3, 1fr); }
+.grid-4 { grid-template-columns: repeat(4, 1fr); }
+.grid-2 { grid-template-columns: repeat(2, 1fr); }
+@media (max-width: 880px) {
+  .grid-3, .grid-4 { grid-template-columns: repeat(2, 1fr); }
+  .grid-2 { grid-template-columns: 1fr; }
+}
+@media (max-width: 520px) {
+  .grid-3, .grid-4, .grid-2 { grid-template-columns: 1fr; }
+}
+
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  transition: all 0.2s;
+}
+.card:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-strong);
+  transform: translateY(-2px);
+}
+.card-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  margin-bottom: 16px;
+  background: var(--grad-card);
+  border: 1px solid var(--border);
+}
+.card h3 {
+  font-size: 17px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  letter-spacing: -0.01em;
+}
+.card p {
+  font-size: 14px;
+  color: var(--text-dim);
+  line-height: 1.6;
+}
+.card .meta {
+  font-size: 11px;
+  color: var(--text-faint);
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  letter-spacing: 0.05em;
+}
+
+/* ─────────────────────────────────────────────
+   优势卡（带星级）
+   ───────────────────────────────────────────── */
+.advantage {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 28px;
+  position: relative;
+  overflow: hidden;
+}
+.advantage::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--grad-hero);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.advantage:hover::before { opacity: 1; }
+.advantage:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-strong);
+}
+.advantage-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+.advantage-rating {
+  font-size: 12px;
+  color: var(--accent-3);
+  letter-spacing: 0.1em;
+  flex-shrink: 0;
+}
+.advantage-title {
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.advantage-title .ind {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 8px;
+  background: rgba(252,129,129,0.12);
+  color: var(--accent-4);
+  border-radius: 4px;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+.advantage-desc {
+  font-size: 14px;
+  color: var(--text-dim);
+  margin-bottom: 16px;
+}
+.advantage-quote {
+  font-size: 13px;
+  color: var(--text-faint);
+  padding-left: 14px;
+  border-left: 2px solid var(--border-strong);
+  font-style: italic;
+  line-height: 1.6;
+}
+.advantage-quote::before { content: "❝ "; color: var(--accent-1); }
+.advantage-quote::after { content: " ❞"; color: var(--accent-1); }
+
+/* ─────────────────────────────────────────────
+   对比表
+   ───────────────────────────────────────────── */
+.compare {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  font-size: 14px;
+}
+.compare thead {
+  background: rgba(255,255,255,0.04);
+}
+.compare th, .compare td {
+  padding: 14px 18px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+.compare th {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-dim);
+  letter-spacing: 0.02em;
+}
+.compare tr:last-child td { border-bottom: none; }
+.compare td.win {
+  color: var(--accent-5);
+  font-weight: 500;
+}
+.compare td.win-strong {
+  color: var(--accent-3);
+  font-weight: 600;
+}
+.compare td.neutral { color: var(--text-dim); }
+
+/* ─────────────────────────────────────────────
+   公式块
+   ───────────────────────────────────────────── */
+.formula {
+  text-align: center;
+  padding: 60px 32px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  position: relative;
+  overflow: hidden;
+}
+.formula::before {
+  content: "";
+  position: absolute;
+  inset: -50%;
+  background: radial-gradient(circle, rgba(183,148,246,0.1) 0%, transparent 50%);
+  pointer-events: none;
+}
+.formula-pieces {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+  position: relative;
+  z-index: 1;
+}
+.formula-piece {
+  font-size: clamp(20px, 3vw, 32px);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  padding: 14px 24px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+}
+.formula-piece:nth-child(1) { color: var(--accent-1); }
+.formula-piece:nth-child(3) { color: var(--accent-2); }
+.formula-piece:nth-child(5) { color: var(--accent-3); }
+.formula-piece:nth-child(7) { color: var(--accent-5); }
+.formula-plus {
+  font-size: clamp(20px, 3vw, 32px);
+  color: var(--text-faint);
+}
+.formula-eq {
+  font-size: 14px;
+  color: var(--text-dim);
+  margin-bottom: 28px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  position: relative;
+  z-index: 1;
+}
+
+/* ─────────────────────────────────────────────
+   五维度
+   ───────────────────────────────────────────── */
+.dim-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+  margin-top: 40px;
+}
+@media (max-width: 880px) {
+  .dim-grid { grid-template-columns: repeat(2, 1fr); }
+}
+.dim {
+  padding: 24px 18px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  text-align: center;
+  position: relative;
+}
+.dim:hover { background: var(--bg-card-hover); }
+.dim-num {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  font-size: 11px;
+  color: var(--text-faint);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+.dim-icon {
+  font-size: 28px;
+  margin-bottom: 12px;
+}
+.dim-name {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.dim-detail {
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+
+/* ─────────────────────────────────────────────
+   模式卡片
+   ───────────────────────────────────────────── */
+.mode-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 28px;
+  position: relative;
+  overflow: hidden;
+}
+.mode-tag {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--text-faint);
+  font-weight: 600;
+}
+.mode-emoji {
+  font-size: 32px;
+  margin-bottom: 18px;
+}
+.mode-title {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  letter-spacing: -0.02em;
+}
+.mode-subtitle {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-bottom: 20px;
+}
+.mode-list {
+  list-style: none;
+  margin-bottom: 20px;
+}
+.mode-list li {
+  font-size: 13px;
+  color: var(--text-dim);
+  padding-left: 18px;
+  position: relative;
+  margin-bottom: 8px;
+  line-height: 1.55;
+}
+.mode-list li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 8px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--accent-1);
+}
+.mode-callout {
+  font-size: 12px;
+  padding: 10px 14px;
+  background: rgba(246,173,85,0.08);
+  border: 1px solid rgba(246,173,85,0.2);
+  color: var(--accent-3);
+  border-radius: var(--radius-sm);
+}
+
+/* ─────────────────────────────────────────────
+   案例卡片
+   ───────────────────────────────────────────── */
+.case {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.case-head {
+  padding: 22px 24px 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  justify-content: space-between;
+}
+.case-num {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  color: var(--accent-3);
+}
+.case-rating {
+  font-size: 11px;
+  padding: 3px 10px;
+  background: rgba(104,211,145,0.12);
+  border: 1px solid rgba(104,211,145,0.3);
+  color: var(--accent-5);
+  border-radius: 20px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.case-title {
+  font-size: 18px;
+  font-weight: 600;
+  padding: 8px 24px 16px;
+  letter-spacing: -0.01em;
+}
+.case-prompt {
+  margin: 0 24px 18px;
+  padding: 16px;
+  background: rgba(0,0,0,0.35);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: rgba(245,245,247,0.78);
+  overflow-x: auto;
+  white-space: pre-wrap;
+  max-height: 240px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.15) transparent;
+}
+.case-prompt::-webkit-scrollbar { width: 6px; height: 6px; }
+.case-prompt::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
+.case-note {
+  padding: 14px 24px;
+  background: rgba(183,148,246,0.04);
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--text-dim);
+  line-height: 1.6;
+  margin-top: auto;
+}
+.case-note strong {
+  color: var(--accent-1);
+  font-weight: 600;
+}
+
+/* ── 案例视频嵌入区 ── */
+.case-video-wrap {
+  margin: 0 24px 18px;
+  position: relative;
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: #000;
+  aspect-ratio: 16 / 9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+/* 竖屏视频用 9:16 容器，避免被裁顶/底 */
+.case-video-wrap.portrait {
+  aspect-ratio: 9 / 16;
+  max-height: 70vh;
+  max-width: 100%;
+  margin: 0 auto 18px;
+  width: clamp(220px, 60%, 360px);
+}
+/* 方形 1:1 */
+.case-video-wrap.square {
+  aspect-ratio: 1 / 1;
+  max-width: 480px;
+  margin: 0 auto 18px;
+}
+.case-video-wrap video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain; /* 用 contain 而非 cover，保证完整画面可见，背景黑边即可 */
+  display: block;
+  background: #000;
+}
+/* placeholder — 视频文件不存在时显示 */
+.case-video-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  background: linear-gradient(135deg, rgba(183,148,246,0.06), rgba(99,179,237,0.04));
+  padding: 24px;
+  pointer-events: none; /* 默认透明 — 视频加载成功时遮罩消失 */
+  transition: opacity 0.2s;
+}
+.case-video-wrap[data-status="missing"] .case-video-placeholder {
+  pointer-events: auto;
+  opacity: 1;
+}
+.case-video-wrap[data-status="loaded"] .case-video-placeholder {
+  opacity: 0;
+}
+.case-video-icon {
+  font-size: 28px;
+  margin-bottom: 8px;
+  opacity: 0.6;
+}
+.case-video-msg {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-bottom: 12px;
+  line-height: 1.5;
+  max-width: 380px;
+}
+.case-video-actions {
+  display: flex;
+  gap: 8px;
+}
+.case-video-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.15s;
+  text-decoration: none;
+}
+.case-video-btn:hover {
+  background: rgba(183,148,246,0.18);
+  border-color: var(--accent-1);
+  color: var(--text);
+}
+.case-video-btn.primary {
+  background: var(--text);
+  color: var(--bg);
+  border-color: transparent;
+}
+.case-video-btn.primary:hover {
+  background: var(--accent-1);
+  color: var(--bg);
+}
+
+/* ─────────────────────────────────────────────
+   边界卡片
+   ───────────────────────────────────────────── */
+.risk {
+  display: flex;
+  gap: 16px;
+  padding: 20px;
+  background: rgba(252,129,129,0.04);
+  border: 1px solid rgba(252,129,129,0.15);
+  border-radius: var(--radius);
+  align-items: flex-start;
+}
+.risk-icon {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  background: rgba(252,129,129,0.12);
+  color: var(--accent-4);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 700;
+}
+.risk-body { flex: 1; }
+.risk-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.risk-desc {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-bottom: 8px;
+  line-height: 1.55;
+}
+.risk-fix {
+  font-size: 12px;
+  color: var(--accent-5);
+  padding-top: 8px;
+  border-top: 1px dashed rgba(104,211,145,0.25);
+}
+.risk-fix strong { font-weight: 600; }
+
+/* ─────────────────────────────────────────────
+   原则编号列表
+   ───────────────────────────────────────────── */
+.principle-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+.principle {
+  display: flex;
+  gap: 18px;
+  padding: 22px 24px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  align-items: flex-start;
+  transition: background 0.2s, border-color 0.2s;
+}
+.principle:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-strong);
+}
+.principle-num {
+  font-size: 22px;
+  font-weight: 700;
+  background: var(--grad-hero);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  width: 38px;
+  flex-shrink: 0;
+  line-height: 1.2;
+}
+.principle-text {
+  font-size: 14px;
+  line-height: 1.6;
+  flex: 1;
+  min-width: 0;
+}
+.principle-text strong {
+  font-weight: 600;
+  display: block;
+  margin-bottom: 4px;
+  color: var(--text);
+  font-size: 15px;
+}
+.principle-text > span {
+  color: var(--text-dim);
+  font-size: 13px;
+  display: block;
+  margin-bottom: 12px;
+}
+.principle-example {
+  margin-top: 12px;
+  padding: 12px 14px;
+  background: rgba(0,0,0,0.25);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px 12px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+.principle-example .tag {
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+}
+.principle-example .tag.bad { color: var(--accent-4); }
+.principle-example .tag.good { color: var(--accent-5); }
+.principle-example .text { color: rgba(245,245,247,0.78); }
+.principle-example .text.bad { color: rgba(252,129,129,0.7); text-decoration: line-through; text-decoration-color: rgba(252,129,129,0.3); }
+.principle-example .text.good { color: rgba(245,245,247,0.92); }
+
+/* ─────────────────────────────────────────────
+   真人短剧 Bad→Good 对照（drama section）
+   ───────────────────────────────────────────── */
+.drama-dim-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+  margin-bottom: 40px;
+}
+@media (max-width: 880px) { .drama-dim-grid { grid-template-columns: repeat(2, 1fr); } }
+.drama-dim {
+  padding: 16px 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  position: relative;
+}
+.drama-dim-num {
+  font-size: 10px;
+  color: var(--accent-1);
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  margin-bottom: 8px;
+}
+.drama-dim-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.drama-dim-detail {
+  font-size: 11.5px;
+  color: var(--text-dim);
+  line-height: 1.55;
+}
+
+.rewrite {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  margin-bottom: 24px;
+}
+.rewrite-head {
+  padding: 18px 24px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(255,255,255,0.02);
+}
+.rewrite-tag {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  color: var(--accent-3);
+  padding: 3px 10px;
+  background: rgba(246,173,85,0.1);
+  border-radius: 12px;
+}
+.rewrite-title {
+  font-size: 17px;
+  font-weight: 600;
+  flex: 1;
+}
+.rewrite-scenario {
+  font-size: 12.5px;
+  color: var(--text-dim);
+  flex: 2;
+  padding-left: 20px;
+  border-left: 1px solid var(--border);
+}
+.rewrite-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+}
+@media (max-width: 720px) {
+  .rewrite-body { grid-template-columns: 1fr; }
+  .rewrite-bad { border-right: none !important; border-bottom: 1px solid var(--border); }
+}
+.rewrite-side {
+  padding: 18px 22px;
+}
+.rewrite-bad {
+  background: rgba(252,129,129,0.04);
+  border-right: 1px solid var(--border);
+}
+.rewrite-good {
+  background: rgba(104,211,145,0.04);
+}
+.rewrite-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  margin-bottom: 12px;
+}
+.rewrite-label.bad { color: var(--accent-4); }
+.rewrite-label.good { color: var(--accent-5); }
+.rewrite-prompt {
+  padding: 12px;
+  background: rgba(0,0,0,0.35);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 11.5px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  max-height: 280px;
+  overflow-y: auto;
+  margin-bottom: 12px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.15) transparent;
+}
+.rewrite-prompt::-webkit-scrollbar { width: 6px; }
+.rewrite-prompt::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
+.rewrite-prompt.bad { color: rgba(252,129,129,0.72); }
+.rewrite-prompt.good { color: rgba(245,245,247,0.88); }
+.rewrite-prompt .hl {
+  color: var(--accent-3);
+  font-weight: 600;
+  background: rgba(246,173,85,0.1);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+.rewrite-issues, .rewrite-fixes {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.7;
+}
+.rewrite-issues li, .rewrite-fixes li {
+  padding-left: 16px;
+  position: relative;
+  color: var(--text-dim);
+}
+.rewrite-issues li::before {
+  content: "✗";
+  position: absolute;
+  left: 0;
+  color: var(--accent-4);
+  font-weight: 700;
+}
+.rewrite-fixes li::before {
+  content: "✓";
+  position: absolute;
+  left: 0;
+  color: var(--accent-5);
+  font-weight: 700;
+}
+.rewrite-video {
+  width: 100%;
+  margin-top: 14px;
+  border-radius: var(--radius-sm);
+  background: #000;
+  max-height: 480px;
+  object-fit: contain;
+  display: block;
+  border: 1px solid rgba(104,211,145,0.25);
+}
+/* 竖屏视频限宽并居中，避免过窄 case 卡里强行拉伸 */
+.rewrite-video.portrait {
+  max-width: 280px;
+  margin-left: auto;
+  margin-right: auto;
+  max-height: 500px;
+}
+.rewrite-video-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: var(--accent-5);
+  margin-top: 12px;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.rewrite-video-label::before {
+  content: "▶";
+  font-size: 10px;
+}
+
+/* ─────────────────────────────────────────────
+   三档深度
+   ───────────────────────────────────────────── */
+.tier {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 28px;
+  position: relative;
+}
+.tier-num {
+  position: absolute;
+  top: -16px;
+  left: 24px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--accent-3);
+}
+.tier-title {
+  font-size: 19px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  margin-top: 8px;
+}
+.tier-when {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-bottom: 18px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--border);
+}
+.tier-how {
+  font-size: 13px;
+  color: var(--text-dim);
+  line-height: 1.6;
+}
+.tier-how strong {
+  color: var(--text);
+  font-weight: 600;
+  font-size: 12px;
+  display: block;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.tier-example {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px dashed var(--border);
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.tier-example-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.tier-example-label.before { color: var(--accent-4); }
+.tier-example-label.after { color: var(--accent-5); }
+.tier-example-block {
+  padding: 10px 12px;
+  background: rgba(0,0,0,0.3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  margin-bottom: 12px;
+  white-space: pre-wrap;
+}
+.tier-example-block:last-child { margin-bottom: 0; }
+.tier-example-block.before {
+  color: rgba(252,129,129,0.75);
+  border-color: rgba(252,129,129,0.15);
+}
+.tier-example-block.after {
+  color: rgba(245,245,247,0.9);
+  border-color: rgba(104,211,145,0.2);
+  background: rgba(104,211,145,0.04);
+}
+.tier-example-block .hl {
+  color: var(--accent-3);
+  font-weight: 600;
+  background: rgba(246,173,85,0.1);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+/* ─────────────────────────────────────────────
+   tips
+   ───────────────────────────────────────────── */
+.tip-list {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+@media (max-width: 720px) { .tip-list { grid-template-columns: 1fr; } }
+.tip {
+  display: flex;
+  gap: 12px;
+  padding: 16px 18px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+.tip::before {
+  content: "✓";
+  color: var(--accent-5);
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.tip strong {
+  color: var(--text);
+  font-weight: 600;
+}
+.tip-text {
+  color: var(--text-dim);
+}
+
+/* ─────────────────────────────────────────────
+   footer
+   ───────────────────────────────────────────── */
+.footer {
+  padding: 60px 32px 40px;
+  max-width: 1200px;
+  margin: 0 auto;
+  border-top: 1px solid var(--border);
+  margin-top: 60px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-faint);
+  position: relative;
+  z-index: 1;
+}
+.footer-links {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.footer-links a {
+  color: var(--text-dim);
+  font-size: 13px;
+  transition: color 0.15s;
+}
+.footer-links a:hover { color: var(--text); }
+.footer-meta { line-height: 1.7; }
+
+/* ─────────────────────────────────────────────
+   pulse 动画
+   ───────────────────────────────────────────── */
+@keyframes pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+.nav-brand .dot { animation: pulse 2.4s ease-in-out infinite; }
+
+/* ─────────────────────────────────────────────
+   打印样式
+   ───────────────────────────────────────────── */
+@media print {
+  body::before, body::after { display: none; }
+  .nav { position: static; backdrop-filter: none; }
+  .card, .advantage, .mode-card, .case, .tier { break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+
+<!-- ─── NAV ─── -->
+<header class="nav">
+  <div class="nav-inner">
+    <a href="/" class="nav-brand" title="返回 Frame/0 主页">
+      <span class="brand-back" aria-hidden="true">←</span>
+      <span class="logo">Frame<span class="slash">/</span>0 <b>GUIDE</b></span>
+    </a>
+    <nav class="nav-links">
+      <a href="#overview">总览</a>
+      <a href="#advantages">优势</a>
+      <a href="#compare">对比</a>
+      <a href="#formula">公式</a>
+      <a href="#modes">模式</a>
+      <a href="#cases">案例</a>
+      <a href="#drama">短剧专题</a>
+      <a href="#boundary">边界</a>
+      <a href="#ecom-showcase">电商实拍</a>
+      <a href="#ecom">电商</a>
+      <a href="#tune">调优</a>
+      <a href="#checklist">清单</a>
+    </nav>
+    <span class="nav-version">V 3.0</span>
+  </div>
+</header>
+
+<!-- ─── HERO ─── -->
+<section class="hero" id="overview">
+  <div class="hero-eyebrow">
+    <strong>★</strong>&nbsp;<span>技术服务部-南海TAM-兰柯</span>
+  </div>
+  <h1>
+    HappyHorse 1.0<br>
+    <span class="grad">视频提示词工程</span><br>
+    全指南
+  </h1>
+  <p class="lead">
+    从 30+ 客户实测中沉淀的 38 个最佳实践案例、八大技术优势、四模式分镜模板与电商专项 11 条原则——系统整理 HH 1.0 的最佳实践。
+  </p>
+  <div class="hero-cta">
+    <a class="btn btn-primary" href="https://www.happyhorse.cn/" target="_blank" rel="noopener">
+      体验入口 →
+    </a>
+    <a class="btn btn-ghost" href="https://bailian.console.aliyun.com/" target="_blank" rel="noopener">
+      API 申请
+    </a>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="stat-value">30+</div><div class="stat-label">覆盖客户数</div></div>
+    <div class="stat"><div class="stat-value">25+</div><div class="stat-label">GoodCase 标记</div></div>
+    <div class="stat"><div class="stat-value">40+</div><div class="stat-label">隐性正面反馈</div></div>
+    <div class="stat"><div class="stat-value">7</div><div class="stat-label">行业领域</div></div>
+    <div class="stat"><div class="stat-value">10+</div><div class="stat-label">业务场景</div></div>
+    <div class="stat"><div class="stat-value">38</div><div class="stat-label">最佳实践案例</div></div>
+  </div>
+</section>
+
+<!-- ─── 八大优势 ─── -->
+<section class="section" id="advantages">
+  <div class="section-head">
+    <div class="section-tag">CORE STRENGTHS</div>
+    <h2 class="section-title">八大技术优势</h2>
+  </div>
+  <div class="grid grid-2">
+    <div class="advantage">
+      <div class="advantage-head">
+        <div class="advantage-title">A. 光影质感与画面质量</div>
+        <div class="advantage-rating">★★★★★</div>
+      </div>
+      <div class="advantage-desc">光影效果、画面清晰度、色彩还原表现突出，是客户提及最多的正面评价维度。</div>
+      <div class="advantage-quote">人物面部质感有明显提升，肤质、光影等细节较为真实，已基本摆脱了以往"一眼假"的 AI 人物感 — 短剧制作公司 B</div>
+    </div>
+    <div class="advantage">
+      <div class="advantage-head">
+        <div class="advantage-title">B. 指令遵从与提示词忠实度</div>
+        <div class="advantage-rating">★★★★</div>
+      </div>
+      <div class="advantage-desc">HH 模型"听话"，忠实执行用户提示词，不会自作主张改写意图。</div>
+      <div class="advantage-quote">画面锐度高，同时模型足够听话；不会像 SD2.0 一样把意图改为模型擅长而非导演想要的画面 — 短剧 AI 制作公司</div>
+    </div>
+    <div class="advantage">
+      <div class="advantage-head">
+        <div class="advantage-title">C. 情感表现力 — 哭泣 / 泪水<span class="ind">差异化优势</span></div>
+        <div class="advantage-rating">★★★★</div>
+      </div>
+      <div class="advantage-desc">在哭戏场景中的泪水表现明显优于 SD2.0，多位客户独立发现。</div>
+      <div class="advantage-quote">女性哭的时候有泪痕有泪花，是优点，这个 seedance2.0 做不好 — 客户原声</div>
+    </div>
+    <div class="advantage">
+      <div class="advantage-head">
+        <div class="advantage-title">D. 画面稳定性与穿模控制</div>
+        <div class="advantage-rating">★★★</div>
+      </div>
+      <div class="advantage-desc">物体交互、人物肢体稳定性优于 SD2.0，穿模问题更少。</div>
+      <div class="advantage-quote">关车门时 SD 会有穿模情况，HH 几次都正常 — 客户原声</div>
+    </div>
+    <div class="advantage">
+      <div class="advantage-head">
+        <div class="advantage-title">E. 色调遵循与环境连贯</div>
+        <div class="advantage-rating">★★★</div>
+      </div>
+      <div class="advantage-desc">色彩还原、色调保持、环境衔接出色。</div>
+      <div class="advantage-quote">色调遵循好：色彩变换和光影过渡自然，场景色调保持一致性；环境连贯性强，背景补全和环境衔接流畅 — 客户原声</div>
+    </div>
+    <div class="advantage">
+      <div class="advantage-head">
+        <div class="advantage-title">F. 基础运镜与镜头表现</div>
+        <div class="advantage-rating">★★★</div>
+      </div>
+      <div class="advantage-desc">拉近、拉远、平移、跟拍等基础运镜稳定丝滑。</div>
+      <div class="advantage-quote">丝滑的长镜头，极度稳定的向前推镜头；运镜表现明确 — 户外森林案例</div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── 竞品对比 ─── -->
+<section class="section" id="compare">
+  <div class="section-head">
+    <div class="section-tag">COMPETITIVE</div>
+    <h2 class="section-title">竞品对比矩阵</h2>
+    <p class="section-lead">在 5 个核心维度上，HH 与 SD2.0、Kling 3.0 的相对位置。</p>
+  </div>
+  <table class="compare">
+    <thead>
+      <tr>
+        <th>维度</th>
+        <th>HH vs SD2.0</th>
+        <th>HH vs Kling 3.0</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>光影质感</td><td class="win">部分场景接近 / 超越</td><td class="win">优于</td></tr>
+      <tr><td>指令遵从</td><td class="win-strong">更"听话"（差异化优势）</td><td class="neutral">—</td></tr>
+      <tr><td>哭泣泪水</td><td class="win-strong">明显优于</td><td class="neutral">—</td></tr>
+      <tr><td>穿模控制</td><td class="win">优于</td><td class="neutral">—</td></tr>
+      <tr><td>画面清晰度</td><td class="win">更锐利清晰</td><td class="neutral">—</td></tr>
+      <tr><td>生成速度</td><td class="neutral">较慢</td><td class="neutral">慢于 Kling（约 1 分 43 秒）</td></tr>
+      <tr><td>夜景 / 抽象</td><td class="win-strong">表现突出</td><td class="neutral">—</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ─── 公式 + 五维度 ─── -->
+<section class="section" id="formula">
+  <div class="section-head">
+    <div class="section-tag">CORE METHODOLOGY</div>
+    <h2 class="section-title">提示词核心公式</h2>
+    <p class="section-lead">提示词 = 场景 + 主体 + 运动 + 音频。配合五维度拆解法，让模型注意力精准锚定。</p>
+  </div>
+  <div class="formula">
+    <div class="formula-eq">PROMPT FORMULA</div>
+    <div class="formula-pieces">
+      <div class="formula-piece">场景</div>
+      <div class="formula-plus">+</div>
+      <div class="formula-piece">主体</div>
+      <div class="formula-plus">+</div>
+      <div class="formula-piece">运动</div>
+      <div class="formula-plus">+</div>
+      <div class="formula-piece">音频</div>
+    </div>
+  </div>
+  <div class="dim-grid">
+    <div class="dim">
+      <div class="dim-num">01</div>
+      <div class="dim-icon">🎭</div>
+      <div class="dim-name">主体</div>
+      <div class="dim-detail">人物 / 产品 / 角色的外观、身份、服装、材质</div>
+    </div>
+    <div class="dim">
+      <div class="dim-num">02</div>
+      <div class="dim-icon">🏞️</div>
+      <div class="dim-name">场景</div>
+      <div class="dim-detail">环境、背景、前景、时间、季节</div>
+    </div>
+    <div class="dim">
+      <div class="dim-num">03</div>
+      <div class="dim-icon">🎬</div>
+      <div class="dim-name">动作</div>
+      <div class="dim-detail">运动幅度、速度、方向、物理交互、动作链</div>
+    </div>
+    <div class="dim">
+      <div class="dim-num">04</div>
+      <div class="dim-icon">📷</div>
+      <div class="dim-name">镜头</div>
+      <div class="dim-detail">景别、视角、运镜（推 / 拉 / 移 / 跟）</div>
+    </div>
+    <div class="dim">
+      <div class="dim-num">05</div>
+      <div class="dim-icon">🔊</div>
+      <div class="dim-name">声音</div>
+      <div class="dim-detail">对话、环境音、音效、BGM</div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── 四种模式 ─── -->
+<section class="section" id="modes">
+  <div class="section-head">
+    <div class="section-tag">FOUR MODES</div>
+    <h2 class="section-title">四大生成模式</h2>
+    <p class="section-lead">T2V / I2V / R2V / V2V 覆盖从零创作到精准编辑的全链路。</p>
+  </div>
+  <div class="grid grid-2">
+    <div class="mode-card">
+      <div class="mode-tag">T2V</div>
+      <div class="mode-emoji">✍️</div>
+      <div class="mode-title">文生视频</div>
+      <div class="mode-subtitle">输入：自然语言提示词 · 输出：720P / 1080P · 3-15s</div>
+      <ul class="mode-list">
+        <li>Prompt 是全部信息来源</li>
+        <li>对光影氛围、人物真实感、风格化场景表现尤为突出</li>
+        <li>最多 5000 英文 / 2500 汉字</li>
+      </ul>
+      <div class="mode-callout">💡 善用声音输出 · 风格要具体 · 光影要锚定 · 质感要植入</div>
+    </div>
+    <div class="mode-card">
+      <div class="mode-tag">I2V</div>
+      <div class="mode-emoji">🖼️</div>
+      <div class="mode-title">首帧图生视频</div>
+      <div class="mode-subtitle">输入：1 张图 + 可选 prompt · 画幅跟随原图</div>
+      <ul class="mode-list">
+        <li>首帧 = 视频第一帧画面，精确还原</li>
+        <li>Prompt 必须描述"从这一帧继续发生什么"</li>
+        <li>不建议让人物转身 / 切换镜头视角（容易导致画面崩坏）</li>
+      </ul>
+      <div class="mode-callout">⚠️ 首帧是事实来源 · 只描述"动起来"，不重新构图 · 微动效要量化</div>
+    </div>
+    <div class="mode-card">
+      <div class="mode-tag">R2V</div>
+      <div class="mode-emoji">🎴</div>
+      <div class="mode-title">多图参考生视频</div>
+      <div class="mode-subtitle">输入：1-9 张参考图 + 必填 prompt</div>
+      <ul class="mode-list">
+        <li>图片 = 视觉参考素材，提取特征融入</li>
+        <li>四种写法：单主体多角度 / 主体+场景 / 多主体交互 / 剧情分镜</li>
+        <li>可自由选择画幅</li>
+      </ul>
+      <div class="mode-callout">📌 明确 [图N] 对应关系 · 先保留商业链路再修补质感</div>
+    </div>
+    <div class="mode-card">
+      <div class="mode-tag">V2V</div>
+      <div class="mode-emoji">🎞️</div>
+      <div class="mode-title">视频编辑</div>
+      <div class="mode-subtitle">输入：视频 + 可选参考图 + prompt</div>
+      <ul class="mode-list">
+        <li>四种场景：风格化改写 / 主体替换 / 场景迁移 / 多元素组合</li>
+        <li>源视频是最高约束</li>
+        <li>只描述需要改变的内容</li>
+      </ul>
+      <div class="mode-callout">🎯 明确"改什么"与"保留什么" · 超过 3 个并列改动建议分两次</div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── 案例展示 ─── -->
+<section class="section" id="cases">
+  <div class="section-head">
+    <div class="section-tag">SHOWCASE</div>
+    <h2 class="section-title">最佳实践案例精选</h2>
+    <p class="section-lead">从 38 个原文案例中精选 8 个最具代表性的范本，展示 HH 在不同模式下的能力上限。</p>
+  </div>
+  <div class="grid grid-2">
+
+    <article class="case">
+      <div class="case-head">
+        <span class="case-num">T2V · CASE 01</span>
+        <span class="case-rating">画面美学 9分</span>
+      </div>
+      <h3 class="case-title">香港城市夜景延时</h3>
+      <pre class="case-prompt" data-prompt-id="case-01">生成一段 5 秒的电影感香港城市夜景延时视频，拍摄点在维多利亚港，镜头固定，整体节奏舒缓有氛围，突出夜景光影和空间层次，适合横版视频开场并预留标题空间。</pre>
+      <div class="case-video-wrap" data-case="01" data-status="missing">
+        <video controls preload="none" playsinline></video>
+        <div class="case-video-placeholder">
+          <div class="case-video-icon">🎬</div>
+          <div class="case-video-msg">视频待生成 — 复制上方 Prompt，在工坊用 <strong>HappyHorse</strong> 跑一次后保存为 <code>case-01.mp4</code> 放到 <code>/public/hh-cases/</code> 即可</div>
+          <div class="case-video-actions">
+            <button class="case-video-btn copy-prompt" data-target="case-01">📋 复制 Prompt</button>
+            <a class="case-video-btn primary" href="/" target="_blank">→ 去工坊</a>
+          </div>
+        </div>
+      </div>
+      <div class="case-note">
+        <strong>亮点：</strong>简洁明确，指定地点+镜头+节奏+用途，没有冗余描述。HH > SD > VEO。
+      </div>
+    </article>
+
+    <article class="case">
+      <div class="case-head">
+        <span class="case-num">T2V · CASE 03</span>
+        <span class="case-rating">指令遵从典范</span>
+      </div>
+      <h3 class="case-title">公园女子动作链（完整执行）</h3>
+      <pre class="case-prompt" data-prompt-id="case-02">【镜头】中景到近景的缓推镜头，深秋午后，室外公园长椅场景，自然散射光。
+00:00-00:02：一位二十多岁的亚洲女性坐在木质长椅上，穿着浅驼色毛呢大衣，黑色长发被微风轻轻扬起几缕。她低头看着手中的咖啡纸杯，呼出的白气在冷空气中短暂消散。
+00:02-00:05：她缓缓抬起头，视线移向画面左侧（画外），眼神从沉静转为一丝若有所思的浅笑。阳光透过梧桐枝叶在她侧脸上形成缓慢移动的斑驳光斑。
+00:05-00:08：镜头继续缓慢前推至近景，她抬起右手将一缕被风吹到脸颊的发丝轻轻别到耳后，动作自然。
+00:08-00:10：一阵稍强的风吹起更多落叶从她身前飞过，她下意识微微眯起眼睛。</pre>
+      <div class="case-video-wrap" data-case="02" data-status="missing">
+        <video controls preload="none" playsinline></video>
+        <div class="case-video-placeholder">
+          <div class="case-video-icon">🎬</div>
+          <div class="case-video-msg">视频待生成 — 复制上方 Prompt，在工坊用 <strong>HappyHorse</strong> 跑一次后保存为 <code>case-02.mp4</code> 放到 <code>/public/hh-cases/</code> 即可</div>
+          <div class="case-video-actions">
+            <button class="case-video-btn copy-prompt" data-target="case-02">📋 复制 Prompt</button>
+            <a class="case-video-btn primary" href="/" target="_blank">→ 去工坊</a>
+          </div>
+        </div>
+      </div>
+      <div class="case-note">
+        <strong>亮点：</strong>完整保留"低头→抬头→别发丝→风吹落叶→眯眼"的动作链，HH 严格遵循全部步骤。
+      </div>
+    </article>
+
+    <article class="case">
+      <div class="case-head">
+        <span class="case-num">T2V · CASE 06</span>
+        <span class="case-rating">叙事范例</span>
+      </div>
+      <h3 class="case-title">审讯室对峙（中近景叙事）</h3>
+      <pre class="case-prompt" data-prompt-id="case-03">【场景】冷白灯光打下的审讯室，金属桌面反光，烟灰缸里还有未熄的烟。
+【主体】左侧老刑警西装褶皱，眼袋深重，手指慢慢敲着桌面；右侧嫌疑人双臂交叉，眼神游移，嘴角带着一丝不易察觉的轻蔑。
+【运动】老刑警将一张照片缓缓推过桌面，嫌疑人眼神微微一顿又迅速移开；镜头低角度平推，捕捉两人手部与表情的细微对峙。
+【音频】老刑警，语速极慢，每个字像钉子："你知道我做这行多少年了吗。"短暂沉默，烟灰缸上的烟细细飘散。</pre>
+      <div class="case-video-wrap" data-case="03" data-status="missing">
+        <video controls preload="none" playsinline></video>
+        <div class="case-video-placeholder">
+          <div class="case-video-icon">🎬</div>
+          <div class="case-video-msg">视频待生成 — 复制上方 Prompt，在工坊用 <strong>HappyHorse</strong> 跑一次后保存为 <code>case-03.mp4</code> 放到 <code>/public/hh-cases/</code> 即可</div>
+          <div class="case-video-actions">
+            <button class="case-video-btn copy-prompt" data-target="case-03">📋 复制 Prompt</button>
+            <a class="case-video-btn primary" href="/" target="_blank">→ 去工坊</a>
+          </div>
+        </div>
+      </div>
+      <div class="case-note">
+        <strong>亮点：</strong>五维度完整覆盖（场景+主体+运动+镜头+音频），台词与画面动作紧密配合，低角度平推增强对峙张力。
+      </div>
+    </article>
+
+    <article class="case">
+      <div class="case-head">
+        <span class="case-num">T2V · CASE 12</span>
+        <span class="case-rating">结构化典范</span>
+      </div>
+      <h3 class="case-title">私人飞机机舱</h3>
+      <pre class="case-prompt" data-prompt-id="case-04">【场景】奢华的私人飞机机舱内，窗外是壮丽的金红色的云海落日，阳光将机舱渲染成琥珀色。
+【主体】左侧满头银发的年长男性身穿高定西装，手持威士忌酒杯，目光如鹰般锐利；右侧的年轻男性身体微微前倾，眉头微皱，神情既紧张又充满野心。
+【运动】年长男性轻轻晃动着手中的酒杯，液体挂壁，他身体逼近对方；镜头缓慢侧推，聚焦两人之间紧绷的张力。
+【音频】年长男性，低沉沙哑："In this world, you either hunt or you become the prey." 背景伴随着飞机引擎深沉的轰鸣声和冰块撞击玻璃杯的清脆声。</pre>
+      <div class="case-video-wrap" data-case="04" data-status="missing">
+        <video controls preload="none" playsinline></video>
+        <div class="case-video-placeholder">
+          <div class="case-video-icon">🎬</div>
+          <div class="case-video-msg">视频待生成 — 复制上方 Prompt，在工坊用 <strong>HappyHorse</strong> 跑一次后保存为 <code>case-04.mp4</code> 放到 <code>/public/hh-cases/</code> 即可</div>
+          <div class="case-video-actions">
+            <button class="case-video-btn copy-prompt" data-target="case-04">📋 复制 Prompt</button>
+            <a class="case-video-btn primary" href="/" target="_blank">→ 去工坊</a>
+          </div>
+        </div>
+      </div>
+      <div class="case-note">
+        <strong>亮点：</strong>标准示范"场景+主体+运动+音频"四段式结构，液体挂壁、引擎轰鸣、冰块撞击等物理细节增强真实感。
+      </div>
+    </article>
+
+    <article class="case">
+      <div class="case-head">
+        <span class="case-num">I2V · CASE 01</span>
+        <span class="case-rating">泪水优势</span>
+      </div>
+      <h3 class="case-title">哭泣场景（HH 差异化优势）</h3>
+      <pre class="case-prompt" data-prompt-id="case-05">林婉和叶辰站在餐桌旁面对面交谈
+【0-5 秒】林婉的近景镜头，听到父亲的话题，她眼中的光芒瞬间黯淡下来，刚刚止住的眼泪又涌了上来。她低下头，用手指擦拭着眼角，声音哽咽，充满了无助。
+林婉："嗯...他冠心病，需要几十万的手术费呢......"
+【5-8 秒】叶辰的近景镜头，他认真地倾听着，脸上轻松的表情完全消失，取而代之的是深深的同情和理解。</pre>
+      <div class="case-video-wrap portrait" data-case="05" data-status="missing">
+        <video controls preload="none" playsinline></video>
+        <div class="case-video-placeholder">
+          <div class="case-video-icon">🎬</div>
+          <div class="case-video-msg">视频待生成 — 复制上方 Prompt，在工坊用 <strong>HappyHorse</strong> 跑一次后保存为 <code>case-05.mp4</code> 放到 <code>/public/hh-cases/</code> 即可</div>
+          <div class="case-video-actions">
+            <button class="case-video-btn copy-prompt" data-target="case-05">📋 复制 Prompt</button>
+            <a class="case-video-btn primary" href="/" target="_blank">→ 去工坊</a>
+          </div>
+        </div>
+      </div>
+      <div class="case-note">
+        <strong>亮点：</strong>女性角色哭泣时有泪痕和泪花，泪水表现真实自然——明显优于 SD2.0 的差异化能力。
+      </div>
+    </article>
+
+    <article class="case">
+      <div class="case-head">
+        <span class="case-num">R2V · CASE 02</span>
+        <span class="case-rating">优化前后对比</span>
+      </div>
+      <h3 class="case-title">大龄妈妈装（卖点视觉化）</h3>
+      <pre class="case-prompt" data-prompt-id="case-06">❌ 优化前：
+一个中年妈妈穿着这套衣服，显瘦，遮肚子，在小区花园散步。
+
+✅ 优化后：
+【镜头1 | 中景/平视 | 缓跟运镜 | 5秒】
+傍晚金色阳光透过梧桐叶洒落，小区花园石板路上。
+一位 50 岁左右的女性身穿深蓝色 A 字连衣裙，裙摆在小腿处自然摆动。
+面料垂坠感强，在腰间形成自然褶皱而非紧绷，走动时裙身随步伐轻微荡开。
+她面带从容微笑，一手轻提草编包，步伐稳健自信。</pre>
+      <div class="case-video-wrap portrait" data-case="06" data-status="missing">
+        <video controls preload="none" playsinline></video>
+        <div class="case-video-placeholder">
+          <div class="case-video-icon">🎬</div>
+          <div class="case-video-msg">视频待生成 — 复制上方 Prompt，在工坊用 <strong>HappyHorse</strong> 跑一次后保存为 <code>case-06.mp4</code> 放到 <code>/public/hh-cases/</code> 即可</div>
+          <div class="case-video-actions">
+            <button class="case-video-btn copy-prompt" data-target="case-06">📋 复制 Prompt</button>
+            <a class="case-video-btn primary" href="/" target="_blank">→ 去工坊</a>
+          </div>
+        </div>
+      </div>
+      <div class="case-note">
+        <strong>亮点：</strong>将"显瘦遮肚子"转化为"面料垂坠感强，腰间形成自然褶皱而非紧绷"——抽象卖点 → 视觉锚点。
+      </div>
+    </article>
+
+    <article class="case">
+      <div class="case-head">
+        <span class="case-num">T2V · CASE 04</span>
+        <span class="case-rating">风格化范例</span>
+      </div>
+      <h3 class="case-title">敦煌九色鹿（一镜到底）</h3>
+      <pre class="case-prompt" data-prompt-id="case-07">生成一支电影感幻想视频，整体为敦煌壁画风格的极繁美学，色彩以通篇红色系为主，辅以金色、赭石与暗青点缀，画面华丽、吉庆、庄严，具有强烈东方神性与仪式感。
+画面为一镜到底，镜头始终跟随一只神圣九鹿的行进，通过环境变化完成多个氛围场景切换，不切镜……
+主角为一只中国古代神话九色鹿，体态优雅灵动，通体洁白底色交织九色祥纹（金、青、赤、绿、紫等），鹿角如珊瑚玉树般华美分叉，身躯布满敦煌联珠纹、卷草纹与流动金线。</pre>
+      <div class="case-video-wrap" data-case="07" data-status="missing">
+        <video controls preload="none" playsinline></video>
+        <div class="case-video-placeholder">
+          <div class="case-video-icon">🎬</div>
+          <div class="case-video-msg">视频待生成 — 复制上方 Prompt，在工坊用 <strong>HappyHorse</strong> 跑一次后保存为 <code>case-07.mp4</code> 放到 <code>/public/hh-cases/</code> 即可</div>
+          <div class="case-video-actions">
+            <button class="case-video-btn copy-prompt" data-target="case-07">📋 复制 Prompt</button>
+            <a class="case-video-btn primary" href="/" target="_blank">→ 去工坊</a>
+          </div>
+        </div>
+      </div>
+      <div class="case-note">
+        <strong>亮点：</strong>风格描述极为具体（敦煌壁画+极繁美学+红色系+金色点缀），场景切换通过色彩浓度自然完成。
+      </div>
+    </article>
+
+    <article class="case">
+      <div class="case-head">
+        <span class="case-num">T2V · CASE 05</span>
+        <span class="case-rating">产品广告典范</span>
+      </div>
+      <h3 class="case-title">可口可乐清爽广告</h3>
+      <pre class="case-prompt" data-prompt-id="case-08">可口可乐清爽广告，商业摄影质感，明亮冷色调，浅景深。
+0-2 秒：纯白背景中，一瓶冰镇可口可乐从上方落入画面，瓶身裹着一层薄霜，撞击冰面激起一圈冰晶飞溅，伴随清脆的撞击声和冰块碎裂声；
+3-5 秒：微距特写瓶盖开启瞬间，大量冷气白雾从瓶口涌出，碳酸气泡翻涌着溢出瓶口向上漂浮，镜头跟随气泡上升，阳光穿过气泡折射出彩虹色光斑；
+6-8 秒：镜头缓拉至全景，冰镇可口可乐立于碎冰之上，柔和冷光从侧后方打来在瓶身勾勒出一道冰蓝高光。</pre>
+      <div class="case-video-wrap" data-case="08" data-status="missing">
+        <video controls preload="none" playsinline></video>
+        <div class="case-video-placeholder">
+          <div class="case-video-icon">🎬</div>
+          <div class="case-video-msg">视频待生成 — 复制上方 Prompt，在工坊用 <strong>HappyHorse</strong> 跑一次后保存为 <code>case-08.mp4</code> 放到 <code>/public/hh-cases/</code> 即可</div>
+          <div class="case-video-actions">
+            <button class="case-video-btn copy-prompt" data-target="case-08">📋 复制 Prompt</button>
+            <a class="case-video-btn primary" href="/" target="_blank">→ 去工坊</a>
+          </div>
+        </div>
+      </div>
+      <div class="case-note">
+        <strong>亮点：</strong>时间线清晰（0-2/3-5/6-8 秒），每段对应具体画面和音效，产品展示链路完整。
+      </div>
+    </article>
+
+  </div>
+</section>
+
+<!-- ─── 真人短剧专题：Bad→Good 改写 ─── -->
+<section class="section" id="drama">
+  <div class="section-head">
+    <div class="section-tag">DRAMA REWRITE PLAYBOOK</div>
+    <h2 class="section-title">真人短剧专题：Bad → Good 改写</h2>
+    <p class="section-lead">真人短剧场景（多人对峙 / 情感摊牌 / 修罗场）有独立方法论。这一章节展示三组真实改写对照——同一场景，从"模型听不懂"到"完整执行"的具体修改路径。</p>
+  </div>
+
+  <!-- 真人短剧五维度 -->
+  <div class="drama-dim-grid">
+    <div class="drama-dim">
+      <div class="drama-dim-num">维度 01</div>
+      <div class="drama-dim-title">🧭 空间位置关系</div>
+      <div class="drama-dim-detail">中心参照物 + 每人位置朝向 + 视线关系 + 后续锁定</div>
+    </div>
+    <div class="drama-dim">
+      <div class="drama-dim-num">维度 02</div>
+      <div class="drama-dim-title">🎬 运镜能力</div>
+      <div class="drama-dim-detail">景别递进（远→中→近）+ 关系镜头 4 段式</div>
+    </div>
+    <div class="drama-dim">
+      <div class="drama-dim-num">维度 03</div>
+      <div class="drama-dim-title">👥 人物场景一致性</div>
+      <div class="drama-dim-detail">图片编号统一 + 全覆盖引用 + 非说话角色微动态</div>
+    </div>
+    <div class="drama-dim">
+      <div class="drama-dim-num">维度 04</div>
+      <div class="drama-dim-title">🎭 情绪表达与声画</div>
+      <div class="drama-dim-detail">渐变过程（A→B）+ 4 层微动作 + 动作三段式</div>
+    </div>
+    <div class="drama-dim">
+      <div class="drama-dim-num">维度 05</div>
+      <div class="drama-dim-title">⏱️ 台词与时长</div>
+      <div class="drama-dim-detail">字数÷3+2 秒公式 + 时间码首尾相接</div>
+    </div>
+  </div>
+
+  <!-- ── 改写案例 1：开门见人 ── -->
+  <article class="rewrite">
+    <div class="rewrite-head">
+      <span class="rewrite-tag">CASE 01</span>
+      <div class="rewrite-title">开门见人 — 动作衔接 &amp; 空间一致性</div>
+      <div class="rewrite-scenario">两人沙发喝酒，门铃响，主角起身开门，门外是第三人，主角露出惊讶</div>
+    </div>
+    <div class="rewrite-body">
+      <div class="rewrite-side rewrite-bad">
+        <div class="rewrite-label bad">● 优化前（客户反馈：动作不协调，门方向不对）</div>
+        <pre class="rewrite-prompt bad">@image1和@image2在沙发上喝酒，门铃响起，@image1主动起身去开门。
+
+镜头1，2s，中景，平推运镜，@image1走到门边伸手拉开房门，身体微侧探向门外。
+镜头2，2s，近景，固定运镜，@image3站在门口，一脸无辜看向门内。
+镜头3，3s，特写，推镜，@image1面露惊讶神色，内心os：是刚才电梯里的那个男人。
+
+@图片4作为场景参考  @图片5作为视频的第一帧</pre>
+        <ul class="rewrite-issues">
+          <li>完全缺少全局画质锚点</li>
+          <li>缺空间关系设定，门方向无定义</li>
+          <li>动作密度过高，时长不足（拉门 + 探身 + 视线只给 2s）</li>
+          <li>动作无展开过程（只写"拉开房门"）</li>
+          <li>情绪是静态标签"惊讶神色"</li>
+          <li>内心 os 处理方式不当，可能让角色张嘴</li>
+        </ul>
+      </div>
+      <div class="rewrite-side rewrite-good">
+        <div class="rewrite-label good">● 优化后</div>
+        <pre class="rewrite-prompt good"><span class="hl">【4K高清，电影质感，色调冷中性偏自然，光影柔和；全程无字幕；不保留人声，人物全程不张嘴说话；保留门铃余韵、脚步声、门把手转动声…】</span>
+
+<span class="hl">空间关系设定：图片1 起始位于沙发区域，沿画面中部走向门口，面朝右前方；图片2 始终在沙发上，靠近客厅内侧，视线跟随；图片3 位于入户门外，面朝门内，与开门后的图片1 形成明确对视。</span>
+
+镜头1，2s 【近景/平推】图片1 承接前情，已从沙发起身走到门边，右手缓缓抬起靠近门把，<span class="hl">手指从自然松开到轻轻收紧</span>，随后将房门拉开，身体顺势微微侧开。图片2 留在沙发上，<span class="hl">保持轻微呼吸起伏与一次自然眨眼</span>。
+
+镜头3，3s 【近景/抽帧】她看清图片3后，视线先在对方脸上短暂停住，<span class="hl">眼神微微一滞，瞳孔轻轻放大，眉毛略微抬起又缓缓收住，嘴唇始终闭合但下颌有极轻微绷紧；呼吸像是顿了半拍</span>。
+<span class="hl">内心独白：图片1：'是刚才电梯里的那个男人。'</span></pre>
+        <ul class="rewrite-fixes">
+          <li>画质锚点 8 项 + 环境音细化</li>
+          <li>空间关系设定解决门方向</li>
+          <li>开门动作有触感力度展开</li>
+          <li>情绪 6 节点渐变（静→滞→放大→上挑→收住→闭嘴）</li>
+          <li>内心独白用专属格式，全场景禁声 → 不张嘴</li>
+          <li>非主角图片2 不再"隐形"，给微动态</li>
+        </ul>
+        <div class="rewrite-video-label">HappyHorse 实拍效果</div>
+        <video class="rewrite-video portrait" src="/hh-cases/drama-01.mp4" controls muted preload="metadata" playsinline></video>
+      </div>
+    </div>
+  </article>
+
+  <!-- ── 改写案例 2：四人聚餐揭底 ── -->
+  <article class="rewrite">
+    <div class="rewrite-head">
+      <span class="rewrite-tag">CASE 02</span>
+      <div class="rewrite-title">四人聚餐揭底 — 表情管理 &amp; 视线方向</div>
+      <div class="rewrite-scenario">两男两女聚餐，女生1突然揭底男生2不是阔少而是送外卖的，男生2夸张反应</div>
+    </div>
+    <div class="rewrite-body">
+      <div class="rewrite-side rewrite-bad">
+        <div class="rewrite-label bad">● 优化前（客户反馈：表情管理差，看镜头不看人）</div>
+        <pre class="rewrite-prompt bad">图一character1是女生2…图二character2是男生1…图三character3是男生2…图四character4是女生1…图六character6是四人位置图（红色数字1是女生2…）
+
+镜头1：近景 微推浅景深突出人物震惊的神态，女生1突然眼睛瞪大，猛地一拍大腿，身体瞬间挺直，音量不受控地拔高 女生1说："我想起来了！他根本不是什么阔少！他就是个送外卖的！…"
+
+镜头2：近景 固定 浅景深 男生2听到女生1说的话后，夸张地张大嘴巴，满脸不可置信，身体下意识向后仰
+
+要求：真人电影风格，写实质感，8k，高清，RAW原片，胶片摄影。（画面不要出现红色数字）</pre>
+        <ul class="rewrite-issues">
+          <li>提示词无结构化分隔（一整段流水账）</li>
+          <li>视线描写完全缺失 → 实际生成"看镜头不看人"</li>
+          <li>情绪是夸张静态标签（瞪大 / 不可置信 / 拍大腿）</li>
+          <li>镜头 1 中"瞪眼+拍腿+挺直+拔高"四个动作同时发生，无先后顺序</li>
+          <li>动作描写与台词未分离</li>
+          <li>位置图（红色数字）模型不知道怎么处理</li>
+        </ul>
+      </div>
+      <div class="rewrite-side rewrite-good">
+        <div class="rewrite-label good">● 优化后</div>
+        <pre class="rewrite-prompt good"><span class="hl">【8K高清，真人电影风格，写实质感，照片级真实，RAW原片质感，胶片摄影风格…图片6 转化后的空间关系执行（画面中不要出现红色数字或任何标记）】</span>
+
+<span class="hl">空间关系设定：参照 图片6 转化为实际坐位，不显示任何数字。图片4 右侧偏前，面朝左前方；图片3 在图片4左侧紧邻，面朝右前方，形成近距离对话关系；图片1、图片2 在更左侧。图片3 始终处于图片4 左侧。</span>
+
+镜头1，6s 【近景/微推 浅景深】图片4 原本只是微微侧向图片3坐着，听到回忆被触发后，<span class="hl">眼神先短暂一滞，随即瞳孔明显放大，眉毛迅速上挑后又微微收紧</span>；右手猛地抬起后重重拍在大腿上，<span class="hl">拍击瞬间肩背绷紧，从略放松骤然挺直，胸腔起伏一次</span>。拍完后<span class="hl">视线牢牢钉在图片3脸上</span>，下巴略微抬高，情绪从骤然想起转为带着确认感的激动揭穿。
+图片3 全程坐左侧，<span class="hl">先被拍腿声惊到轻轻眨眼一次，肩膀极轻微一缩，视线迅速转向图片4</span>，嘴唇闭合呼吸略停顿。
+台词：图片4："我想起来了！他根本不是什么阔少…"</pre>
+        <ul class="rewrite-fixes">
+          <li>位置图正确转化为文字空间描述（无红色数字）</li>
+          <li>视线全部绑定具体人物（"钉在图片3脸上"）</li>
+          <li>情绪拆为多阶段渐变（一滞→放大→上挑→收紧→拍腿→挺直）</li>
+          <li>画质锚点用模型可解析的语言</li>
+          <li>跨镜头状态承接：图片3 从"被惊到"承接到下镜的"后仰"</li>
+        </ul>
+        <div class="rewrite-video-label">HappyHorse 实拍效果</div>
+        <video class="rewrite-video" src="/hh-cases/drama-02.mp4" controls muted preload="metadata" playsinline></video>
+      </div>
+    </div>
+  </article>
+
+  <!-- ── 改写案例 3：古装苏府开门认人 ── -->
+  <article class="rewrite">
+    <div class="rewrite-head">
+      <span class="rewrite-tag">CASE 03</span>
+      <div class="rewrite-title">古装苏府开门认人 — 五维度全覆盖范例</div>
+      <div class="rewrite-scenario">古装题材，苏府大门开门认人，4 角色 + 1 场景，门内外对峙格局</div>
+    </div>
+    <div class="rewrite-body">
+      <div class="rewrite-side rewrite-bad">
+        <div class="rewrite-label bad">● 优化前（无画质锚点 + 无空间关系 + 无运镜）</div>
+        <pre class="rewrite-prompt bad">写实风格，电影质感。
+初始位置站位参考character6，苏府下方的大门处character5，苏月character2与喜儿丫character3在门内庭院里，洛璃character4和陈观character1站在门外。
+
+沉重的朱红色大门拉开，漏出苏月character2和喜儿丫character3站在庭院里。苏月character2往门外看（视线下移，凌厉神色崩塌），看到洛璃character4站在苏府门外一身狼狈。</pre>
+        <ul class="rewrite-issues">
+          <li>无画质锚点（缺基础设定）</li>
+          <li>空间关系无中心参照物</li>
+          <li>无景别 / 运镜指令</li>
+          <li>character 与图片编号混用</li>
+          <li>情绪写"凌厉神色崩塌"是标签</li>
+          <li>无时间码和时长分配</li>
+        </ul>
+      </div>
+      <div class="rewrite-side rewrite-good">
+        <div class="rewrite-label good">● 优化后（五维度全覆盖）</div>
+        <pre class="rewrite-prompt good"><span class="hl">【4K高清，电影质感，色调偏冷，光影对比强烈；保持 图片1、图片2、图片3、图片4 的人物特征一致；保持图片5的场景一致性】</span>
+
+<span class="hl">空间关系设定：苏府大门（图片5）作为中心分隔线，图片2（苏月）门内庭院偏左，面朝正前方；图片3（喜儿丫）门内偏右，略在图片2身后半步；图片4（洛璃）门外正前方偏右，一身狼狈；图片1（陈观）门外图片4左侧后方。后续所有镜头保持这一内外空间关系不变。</span>
+
+镜头1，2s 【中景 / 固定 从人物背后】镜头从图片4 和图片1 背后拍摄，背对镜头面向紧闭朱红色大门。图片4 右侧，衣衫凌乱，发丝散乱，肩膀微微下垂。<span class="hl">晨光斜照在门上，投下长长影子。</span>
+
+镜头2，4s 【中远景 / 缓推】朱红色大门从中缝缓缓向两侧拉开，露出门内庭院。图片2 站庭院中央偏左，<span class="hl">下巴微扬，目光锐利地直视前方</span>。门继续打开，图片2 的<span class="hl">视线开始缓缓下移</span>。
+
+镜头3，2s 【近景 / 过肩缓推】前景是图片4 的后脑勺和散乱发丝的虚化轮廓，镜头推向门内的图片2。<span class="hl">原本凌厉的眼神急剧变化——瞳孔明显放大，眉心微微皱起，嘴唇轻颤着微张，下巴肌肉绷紧。</span>
+时间码 2+4+2 = 8s</pre>
+        <ul class="rewrite-fixes">
+          <li>画质锚点 8 项必填维度完整</li>
+          <li>苏府大门为中心分隔线锁定内外</li>
+          <li>景别递进：固定 → 缓推 → 过肩，由远到近</li>
+          <li>图片编号统一 + 一致性声明</li>
+          <li>情绪 4 节点渐变（放大→皱起→轻颤→绷紧）替代标签</li>
+          <li>时间码 2+4+2=8s 首尾衔接</li>
+        </ul>
+        <div class="rewrite-video-label">HappyHorse 实拍效果</div>
+        <video class="rewrite-video" src="/hh-cases/drama-03.mp4" controls muted preload="metadata" playsinline></video>
+      </div>
+    </div>
+  </article>
+</section>
+
+<!-- ─── 能力边界 ─── -->
+<section class="section" id="boundary">
+  <div class="section-head">
+    <div class="section-tag">LIMITS &amp; GUARDRAILS</div>
+    <h2 class="section-title">能力边界 &amp; 规避策略</h2>
+    <p class="section-lead">了解 HH 不擅长什么比知道它擅长什么更重要——这 5 条边界请提前避免触发。</p>
+  </div>
+  <div class="grid grid-2">
+    <div class="risk">
+      <div class="risk-icon">!</div>
+      <div class="risk-body">
+        <div class="risk-title">复杂分镜与多机位切换</div>
+        <div class="risk-desc">多镜头连续发生时容易丢失前后关系。</div>
+        <div class="risk-fix">✅ <strong>规避：</strong>拆分为单镜头独立生成后剪辑。</div>
+      </div>
+    </div>
+    <div class="risk">
+      <div class="risk-icon">!</div>
+      <div class="risk-body">
+        <div class="risk-title">高速动作 / 打斗场景</div>
+        <div class="risk-desc">赛车、跑酷、打斗容易动作断裂或穿帮。</div>
+        <div class="risk-fix">✅ <strong>规避：</strong>拆解为动作触点，用特写代替全景。</div>
+      </div>
+    </div>
+    <div class="risk">
+      <div class="risk-icon">!</div>
+      <div class="risk-body">
+        <div class="risk-title">超过 10 秒的复杂提示词</div>
+        <div class="risk-desc">单段超过 10 秒容易丢失关键阶段。</div>
+        <div class="risk-fix">✅ <strong>规避：</strong>控制在 5-8 秒/段，复杂叙事拆分为多段。</div>
+      </div>
+    </div>
+    <div class="risk">
+      <div class="risk-icon">!</div>
+      <div class="risk-body">
+        <div class="risk-title">文字与 Logo 渲染</div>
+        <div class="risk-desc">精确文字、品牌名、字幕生成不稳定。</div>
+        <div class="risk-fix">✅ <strong>规避：</strong>后期叠加，Prompt 中只写"标签区域干净平整"。</div>
+      </div>
+    </div>
+    <div class="risk">
+      <div class="risk-icon">!</div>
+      <div class="risk-body">
+        <div class="risk-title">复杂液体物理</div>
+        <div class="risk-desc">碰撞、爆炸、多人交互容易出现不符合物理规律。</div>
+        <div class="risk-fix">✅ <strong>规避：</strong>保留碰撞来源、杯体状态、液体落点、溅射方向。</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── 电商场景实拍（5 个真实案例视频）─── -->
+<section class="section" id="ecom-showcase">
+  <div class="section-head">
+    <div class="section-tag">E-COMMERCE SHOWCASE</div>
+    <h2 class="section-title">电商场景实拍精选</h2>
+    <p class="section-lead">覆盖电商最常见的 5 种典型场景：爆款 / 奢品 / UGC 种草 / 美妆 / 产品微距，每个都附完整 Prompt + HappyHorse 真实成片。</p>
+  </div>
+
+  <div class="grid grid-2">
+
+    <article class="case">
+      <div class="case-head">
+        <span class="case-num">E-COM · 爆款</span>
+        <span class="case-rating">9:16 · 8s</span>
+      </div>
+      <h3 class="case-title">高饱和电商爆款 · 三镜冲击 + Pack Shot</h3>
+      <pre class="case-prompt">9:16竖屏电商爆款风格，高饱和暖色调，硬光高反差，节奏明快。
+镜头1（0-2秒）：手部特写抓握金色高端口红，红黄高饱和背景，浮现大字「💥 一周回购 87%」。
+镜头2（2-5秒）：口红在白色镜面慢动作旋转，光线扫过金属外壳形成连贯反光带，丝绒水光膏体延展。字幕「丝绒水光 12 小时不脱色」。
+镜头3（5-8秒）：口红垂直立于纯白背景中心，浮现「LUMINANCE」白色无衬线品牌名（Pack Shot）。</pre>
+      <div class="case-video-wrap portrait" data-case="ecom-01" data-status="missing">
+        <video src="/hh-cases/ecom-01.mp4" controls muted preload="metadata" playsinline></video>
+        <div class="case-video-placeholder">
+          <div class="case-video-icon">🎬</div>
+          <div class="case-video-msg">视频生成中…&nbsp; <code>node scripts/generate-ecom-cases.mjs 01</code></div>
+        </div>
+      </div>
+      <div class="case-note">
+        <strong>亮点：</strong>第一镜 2 秒内出现产品 + 核心卖点（数字 87%），最后一镜标准 Pack Shot，符合「电商爆款 11 条」中的钩子 + 收束节奏。
+      </div>
+    </article>
+
+    <article class="case">
+      <div class="case-head">
+        <span class="case-num">E-COM · 奢品</span>
+        <span class="case-rating">16:9 · 10s</span>
+      </div>
+      <h3 class="case-title">奢品慢推 · 黑丝绒+冷白侧逆光+金属拉丝</h3>
+      <pre class="case-prompt">16:9 横屏电商奢品广告，低饱和单一色调，黑色丝绒桌面，冷白侧逆光雕刻产品轮廓，节奏极慢。
+镜头1（0-4秒）：腕表斜置于丝绒上，冷白侧逆光从左 45 度入射，金属拉丝表盘呈现细腻磨砂质感，蓝宝石玻璃反射窄高光带。镜头缓推至 12 点位置。
+镜头2（4-8秒）：微距环绕表带一周，皮革缝线工艺细节与蝴蝶扣金属切边，暖橙补光从右后方填充凹槽阴影。
+镜头3（8-10秒）：腕表静置画面正中，右下角浮现细体无衬线品牌名。</pre>
+      <div class="case-video-wrap" data-case="ecom-02" data-status="missing">
+        <video src="/hh-cases/ecom-02.mp4" controls muted preload="metadata" playsinline></video>
+        <div class="case-video-placeholder">
+          <div class="case-video-icon">🎬</div>
+          <div class="case-video-msg">视频生成中…&nbsp; <code>node scripts/generate-ecom-cases.mjs 02</code></div>
+        </div>
+      </div>
+      <div class="case-note">
+        <strong>亮点：</strong>「冷白侧逆光 + 金属拉丝 + 哑光质感」三个 HH 友好词的组合应用——这正是 HH 光影质感强项最佳发挥场景。
+      </div>
+    </article>
+
+    <article class="case">
+      <div class="case-head">
+        <span class="case-num">E-COM · UGC 种草</span>
+        <span class="case-rating">9:16 · 10s</span>
+      </div>
+      <h3 class="case-title">UGC 自拍种草 · Before/After 对比</h3>
+      <pre class="case-prompt">9:16 竖屏 UGC 自拍风格，手持轻晃自然光，暖色调去滤镜感。
+镜头1（0-3秒）：年轻女性手持手机自拍，温馨家居背景，对镜头笑着拿起精华液，自然语调「姐妹们这款真的绝了」。
+镜头2（3-6秒）：手指挤出精华液涂到脸颊，皮肤毛孔可见自然质感，凝露状产品水光反射。
+镜头3（6-10秒）：画面左半显示「使用前」哑光暗沉皮肤，右半「使用后」明亮通透。模特对镜头点头比赞。</pre>
+      <div class="case-video-wrap portrait" data-case="ecom-03" data-status="missing">
+        <video src="/hh-cases/ecom-03.mp4" controls muted preload="metadata" playsinline></video>
+        <div class="case-video-placeholder">
+          <div class="case-video-icon">🎬</div>
+          <div class="case-video-msg">视频生成中…&nbsp; <code>node scripts/generate-ecom-cases.mjs 03</code></div>
+        </div>
+      </div>
+      <div class="case-note">
+        <strong>亮点：</strong>第一人称自拍视角 + 自然口播 + Before/After 分屏——抖音/小红书种草内容的标准三段式。HH 在自然光真人场景表现稳定。
+      </div>
+    </article>
+
+    <article class="case">
+      <div class="case-head">
+        <span class="case-num">E-COM · 美妆</span>
+        <span class="case-rating">1:1 · 8s</span>
+      </div>
+      <h3 class="case-title">美妆护肤 · 凝露水光+柔光环</h3>
+      <pre class="case-prompt">1:1 方形美妆广告级画面，柔光自然光，奶白瓷质背景，皮肤细腻自然哑光质感。
+镜头1（0-3秒）：透明凝露状精华液从滴管缓缓垂落，微距跟随液滴下坠，落入纯白瓷质托盘激起细小波纹，环形光在液滴表面形成柔和高光圈。
+镜头2（3-6秒）：精华液在女性脸颊皮肤上轻柔晕开，毛孔可见自然纹理，水光反射体现服帖与吸收，柔光勾勒脸颊轮廓。
+镜头3（6-8秒）：磨砂玻璃精华液瓶身立于奶白色背景中心，瓶盖金色滚边反射柔和光晕，下方浮现细体品牌字样。</pre>
+      <div class="case-video-wrap square" data-case="ecom-04" data-status="missing">
+        <video src="/hh-cases/ecom-04.mp4" controls muted preload="metadata" playsinline></video>
+        <div class="case-video-placeholder">
+          <div class="case-video-icon">🎬</div>
+          <div class="case-video-msg">视频生成中…&nbsp; <code>node scripts/generate-ecom-cases.mjs 04</code></div>
+        </div>
+      </div>
+      <div class="case-note">
+        <strong>亮点：</strong>「凝露 / 水光 / 柔光 / 哑光质感 / 毛孔自然」HH 友好词的密集应用，方形构图适配电商品牌主图位投放。
+      </div>
+    </article>
+
+    <article class="case">
+      <div class="case-head">
+        <span class="case-num">E-COM · 产品微距</span>
+        <span class="case-rating">16:9 · 9s</span>
+      </div>
+      <h3 class="case-title">产品微距 · 纯黑背景+棚拍冷白光</h3>
+      <pre class="case-prompt">16:9 横屏产品微距广告级画面，纯黑哑光背景，棚拍冷白主光配反光板，无任何人物。
+镜头1（0-3秒）：金属充电宝顶部斜立，镜头缓推至 USB-C 接口，冷白光从右上 30 度入射，照亮金属拉丝纹路与接口同心圆精密结构，金属切角反光带连贯延伸。
+镜头2（3-6秒）：镜头沿充电宝长轴横向平移，掠过阳极氧化金属表面，光斑流转勾勒细腻颗粒质感，电源指示灯渐次亮起一颗、两颗、三颗。
+镜头3（6-9秒）：镜头缓慢拉远，充电宝完整呈现于黑色桌面中央，右下角浮现产品参数「20000mAh · 65W PD」。</pre>
+      <div class="case-video-wrap" data-case="ecom-05" data-status="missing">
+        <video src="/hh-cases/ecom-05.mp4" controls muted preload="metadata" playsinline></video>
+        <div class="case-video-placeholder">
+          <div class="case-video-icon">🎬</div>
+          <div class="case-video-msg">视频生成中…&nbsp; <code>node scripts/generate-ecom-cases.mjs 05</code></div>
+        </div>
+      </div>
+      <div class="case-note">
+        <strong>亮点：</strong>纯无人产品微距 — HH 在棚拍冷白光 + 金属拉丝场景非常稳定。数码品类电商必备类型。
+      </div>
+    </article>
+
+  </div>
+</section>
+
+<!-- ─── 电商 11 条 ─── -->
+<section class="section" id="ecom">
+  <div class="section-head">
+    <div class="section-tag">E-COMMERCE PLAYBOOK</div>
+    <h2 class="section-title">电商专项 11 条原则</h2>
+    <p class="section-lead">从《电商场景 HH prompt 优化思路》提炼，覆盖结构、要素锁定、敏感词、能力放大与规避全链路。</p>
+  </div>
+  <div class="principle-list">
+
+    <div class="principle">
+      <div class="principle-num">01</div>
+      <div class="principle-text">
+        <strong>分镜标准化</strong>
+        <span>"标题行+正文"结构：【镜头号 | 景别/角度 | 运镜 | 时长】</span>
+        <div class="principle-example">
+          <span class="tag bad">❌</span><span class="text bad">模特穿这件衣服在公园走来走去</span>
+          <span class="tag good">✅</span><span class="text good">【镜头1 | 中景/平视 | 缓跟运镜 | 4s】傍晚梧桐叶斑驳光斑下，模特身穿米色 A 字裙缓步前行</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="principle">
+      <div class="principle-num">02</div>
+      <div class="principle-text">
+        <strong>要素锁定</strong>
+        <span>强制提取并锁定人物画像、剧情主线及口播原文，禁止润色篡改核心信息</span>
+        <div class="principle-example">
+          <span class="tag bad">❌</span><span class="text bad">把"25 岁亚洲女性、长直发"润色成"30 岁日系御姐、波浪卷"</span>
+          <span class="tag good">✅</span><span class="text good">锁定三件套：人物（25 岁/亚洲/长直发）· 剧情（化妆→出门→等车）· 口播（"姐妹们这款真的绝了"）</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="principle">
+      <div class="principle-num">03</div>
+      <div class="principle-text">
+        <strong>前置必问</strong>
+        <span>总时长 + 画幅比例（竖屏 9:16 / 横屏 16:9 / 正方 1:1）</span>
+        <div class="principle-example">
+          <span class="tag bad">❌</span><span class="text bad">直接动笔写 prompt，跑完发现尺寸不对返工</span>
+          <span class="tag good">✅</span><span class="text good">写前先确认：总时长 10s · 画幅 9:16 竖屏 · 投放抖音 → 再决定镜头数和构图</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="principle">
+      <div class="principle-num">04</div>
+      <div class="principle-text">
+        <strong>质感增强</strong>
+        <span>强制植入"皮肤细腻自然""哑光质感""材质纹理清晰"等 HH 友好词</span>
+        <div class="principle-example">
+          <span class="tag bad">❌</span><span class="text bad">她皮肤很好，衣服很有质感</span>
+          <span class="tag good">✅</span><span class="text good">皮肤细腻自然、毛孔可见，呈现哑光质感；针织面料在侧逆光下呈现细腻绒毛纹理</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="principle">
+      <div class="principle-num">05</div>
+      <div class="principle-text">
+        <strong>品牌抽象化</strong>
+        <span>禁止出现真实品牌名，改用风格描述（如"银色椭圆 Logo"）</span>
+        <div class="principle-example">
+          <span class="tag bad">❌</span><span class="text bad">她拿起一瓶可口可乐，瓶身上的红色 Logo 清晰可见</span>
+          <span class="tag good">✅</span><span class="text good">她拿起一瓶经典红色罐装碳酸饮料，瓶身裹着薄霜，侧面浮现白色弧形品牌字样</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="principle">
+      <div class="principle-num">06</div>
+      <div class="principle-text">
+        <strong>正面描述原则</strong>
+        <span>"发丝飘拂"代替"不要头发僵硬"，每镜嵌入 1-2 个物理细节</span>
+        <div class="principle-example">
+          <span class="tag bad">❌</span><span class="text bad">不要塑料感、不要假人脸、不要头发僵硬</span>
+          <span class="tag good">✅</span><span class="text good">皮肤呈现自然光泽，发丝在微风中轻轻飘拂，面部肌肉随情绪自然牵动</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="principle">
+      <div class="principle-num">07</div>
+      <div class="principle-text">
+        <strong>微表情量化</strong>
+        <span>带方向和量化的描述（如"嘴角上扬约 15 度""眼神从专注转为笃定"）</span>
+        <div class="principle-example">
+          <span class="tag bad">❌</span><span class="text bad">她看起来有点紧张，又有点期待</span>
+          <span class="tag good">✅</span><span class="text good">她下唇轻咬约 1 秒，手指无意识捻动衣角，眼神从专注转为笃定，呼吸频率明显加快</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="principle">
+      <div class="principle-num">08</div>
+      <div class="principle-text">
+        <strong>能力放大</strong>
+        <span>重点强化画质光影、肤质真实感、微表情控制、物理交互细节</span>
+        <div class="principle-example">
+          <span class="tag bad">❌</span><span class="text bad">平淡日常对白镜头，错过 HH 强项</span>
+          <span class="tag good">✅</span><span class="text good">主动设计一个含泪镜头（HH 在哭戏中的泪水表现优势）+ 一个夜景霓虹反光镜头（HH 光影强项）+ 侧逆光勾勒</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="principle">
+      <div class="principle-num">09</div>
+      <div class="principle-text">
+        <strong>能力规避</strong>
+        <span>避免复杂运镜组合、高速动作、负面约束表达</span>
+        <div class="principle-example">
+          <span class="tag bad">❌</span><span class="text bad">汽车 200km/h 漂移过弯，镜头快速切换 5 个角度展示车身全景</span>
+          <span class="tag good">✅</span><span class="text good">拆为三个特写：方向盘转动 · 轮胎甩出尘土 · 仪表盘速度数字跳动 — 用细节代替全景</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="principle">
+      <div class="principle-num">10</div>
+      <div class="principle-text">
+        <strong>R2V 适配</strong>
+        <span>"特征锚定"策略，明确区分静态特征与动态指令</span>
+        <div class="principle-example">
+          <span class="tag bad">❌</span><span class="text bad">参考这些图片，让人物在咖啡店里走来走去</span>
+          <span class="tag good">✅</span><span class="text good">静态锚定：参考【图1】她的深棕色卷发与米白针织衫；动态指令：她从窗边走到吧台，手指轻拂杯沿</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="principle">
+      <div class="principle-num">11</div>
+      <div class="principle-text">
+        <strong>I2V 适配</strong>
+        <span>强调"首帧保护"与"微动效量化"，聚焦于变化量而非重绘全貌</span>
+        <div class="principle-example">
+          <span class="tag bad">❌</span><span class="text bad">首帧是侧坐看窗外 → "她转过身来对着镜头微笑"（强行改变首帧朝向 → 构图崩坏）</span>
+          <span class="tag good">✅</span><span class="text good">保护首帧朝向："她的手指在桌面上轻轻敲击约 3 下，发梢被风吹起约 5 厘米，呼出的白气在冷空气中消散"</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ─── 三档调优 ─── -->
+<section class="section" id="tune">
+  <div class="section-head">
+    <div class="section-tag">TUNING DEPTH</div>
+    <h2 class="section-title">调优三档深度</h2>
+    <p class="section-lead">根据原 Prompt 偏离程度选择对应调优策略，避免负优化。</p>
+  </div>
+  <div class="grid grid-3" style="margin-top: 40px;">
+
+    <div class="tier">
+      <div class="tier-num">1</div>
+      <div class="tier-title">最小修补</div>
+      <div class="tier-when">原 Prompt 整体合理，仅个别细节有问题（如穿模、表情僵硬、颜色偏差）</div>
+      <div class="tier-how">
+        <strong>操作</strong>
+        不改动时间线和镜头结构；只在问题局部增加约束描述；加入 HH 友好型质感词。
+      </div>
+      <div class="tier-example">
+        <div class="tier-example-label before">● 原版（表情僵硬）</div>
+        <div class="tier-example-block before">【镜头1 | 近景 | 固定 | 4s】她端起咖啡喝了一口，看着窗外，露出微笑。</div>
+        <div class="tier-example-label after">● 修补后（仅追加 HH 友好词，结构不变）</div>
+        <div class="tier-example-block after">【镜头1 | 近景 | 固定 | 4s】她端起咖啡喝了一口，<span class="hl">杯沿轻碰唇缘约 1 秒，水珠沿杯壁缓缓滑落</span>，看着窗外，<span class="hl">嘴角上扬约 12 度，眼角细微起伏</span>。<span class="hl">皮肤细腻自然，发丝在侧逆光中边缘发亮。</span></div>
+      </div>
+    </div>
+
+    <div class="tier">
+      <div class="tier-num">2</div>
+      <div class="tier-title">结构清理</div>
+      <div class="tier-when">原 Prompt 啰嗦、重复、逻辑跳跃</div>
+      <div class="tier-how">
+        <strong>操作</strong>
+        保留核心动作链和关键台词；删除冗余修饰词；统一镜头描述格式；补充缺失的五维度要素。
+      </div>
+      <div class="tier-example">
+        <div class="tier-example-label before">● 原版（堆砌冗余词）</div>
+        <div class="tier-example-block before">一个非常漂亮的女生，她特别漂亮，穿着特别好看的衣服，超级时髦，在咖啡店里非常优雅地坐着，端着一杯咖啡，咖啡看起来很好喝，背景也很高级，反正整体感觉就是非常电影感的那种。</div>
+        <div class="tier-example-label after">● 清理后（标准分镜 + 五维度齐全）</div>
+        <div class="tier-example-block after">【镜头1 | 近景/侧 45 度 | 固定机位 | 5s】<span class="hl">午后咖啡店靠窗位置，侧逆光从窗外洒入</span>。一位 25 岁亚洲女性身穿米色羊毛大衣坐在木椅上，手中端着白瓷咖啡杯。<span class="hl">皮肤细腻自然，发丝在光中边缘发亮</span>。她目光望向窗外，<span class="hl">嘴角微微上扬约 10 度</span>。环境音：远处咖啡机蒸汽声、轻柔爵士乐。</div>
+      </div>
+    </div>
+
+    <div class="tier">
+      <div class="tier-num">3</div>
+      <div class="tier-title">激进重写</div>
+      <div class="tier-when">原 Prompt 与目标完全不符、模式用错（如该用 I2V 却写了 T2V）</div>
+      <div class="tier-how">
+        <strong>操作</strong>
+        提取核心需求重新构建；从五维度逐一重建；<em style="color:var(--accent-4)">人工确认后再提交</em>。
+      </div>
+      <div class="tier-example">
+        <div class="tier-example-label before">● 原版（上传首帧但写成 T2V，强行改朝向 → 必崩）</div>
+        <div class="tier-example-block before">[首帧：女孩侧坐窗边，背对镜头]
+镜头从远处拉近，她转过身正面对着镜头，绽放灿烂笑容，背景虚化呈现暖色光斑。</div>
+        <div class="tier-example-label after">● 重写后（识别为 I2V，保护首帧 + 微动效量化）</div>
+        <div class="tier-example-block after"><span class="hl">[模式确认：I2V — 首帧女孩侧坐窗边，背对镜头]</span>
+保持当前机位与朝向不变。<span class="hl">她肩头轻微起伏约 2 次（呼吸节奏）</span>，右手指尖在窗台上轻敲 3 下，发梢被风轻轻吹起约 5 厘米。<span class="hl">阳光透过玻璃在她侧脸边缘形成柔和轮廓光</span>。环境音：远处城市嗡嗡声、玻璃微微震动声。</div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ─── 检查清单 ─── -->
+<section class="section" id="checklist">
+  <div class="section-head">
+    <div class="section-tag">CHECKLIST</div>
+    <h2 class="section-title">完整检查清单</h2>
+    <p class="section-lead">提交生成前逐项核对，确保 Prompt 满足 HH 模型最佳实践。</p>
+  </div>
+  <div class="tip-list">
+    <div class="tip"><div class="tip-text"><strong>结构：</strong>含标题行（景别/运镜/时长）？正文 ≤200 字？</div></div>
+    <div class="tip"><div class="tip-text"><strong>五维度：</strong>主体、场景、动作、镜头、声音五大维度是否齐全？</div></div>
+    <div class="tip"><div class="tip-text"><strong>一致性：</strong>I2V 是否保护首帧机位？R2V 是否明确参考图对应关系？</div></div>
+    <div class="tip"><div class="tip-text"><strong>可行性：</strong>避开复杂文字渲染和高速多机位？是否 ≤10 秒？</div></div>
+    <div class="tip"><div class="tip-text"><strong>质感：</strong>是否植入 HH 友好词（哑光、轮廓光、磨砂…）？</div></div>
+    <div class="tip"><div class="tip-text"><strong>商业链路：</strong>R2V 是否保留完整展示动作（如开箱三步法）？</div></div>
+    <div class="tip"><div class="tip-text"><strong>合规：</strong>规避真实品牌名、竞品名、敏感词？</div></div>
+    <div class="tip"><div class="tip-text"><strong>保留清单：</strong>核心卖点、关键台词是否被误删？</div></div>
+    <div class="tip"><div class="tip-text"><strong>分辨率：</strong>参考图 ≥ 400×400？</div></div>
+    <div class="tip"><div class="tip-text"><strong>声音策略：</strong>是否需要开启音效 / 语音生成？</div></div>
+  </div>
+</section>
+
+<!-- ─── footer ─── -->
+<footer class="footer">
+  <div class="footer-links">
+    <a href="https://www.happyhorse.cn/" target="_blank" rel="noopener">体验入口</a>
+    <a href="https://bailian.console.aliyun.com/" target="_blank" rel="noopener">API 申请</a>
+    <a href="#overview">回到顶部</a>
+  </div>
+</footer>
+
+<script>
+// ─── 视频嵌入：探测 /hh-cases/<name>.mp4，404 时保持 placeholder ───
+// data-case 支持两种形式：
+//   "01"        → /hh-cases/case-01.mp4   （兼容旧的最佳实践卡片）
+//   "ecom-01"   → /hh-cases/ecom-01.mp4   （电商/短剧专题等带前缀的）
+document.querySelectorAll(".case-video-wrap").forEach((wrap) => {
+  const caseN = wrap.dataset.case;
+  const video = wrap.querySelector("video");
+  if (!video || !caseN) return;
+  // 含连字符 → 视为完整文件名；纯数字 → 加 case- 前缀
+  const fileBase = /-/.test(caseN) ? caseN : `case-${caseN}`;
+  const videoUrl = `/hh-cases/${fileBase}.mp4`;
+  const posterUrl = `/hh-cases/${fileBase}.jpg`;
+  fetch(videoUrl, { method: "HEAD" })
+    .then((r) => {
+      if (!r.ok) return;
+      video.src = videoUrl;
+      const posterImg = new Image();
+      posterImg.src = posterUrl;
+      posterImg.onload = () => { video.poster = posterImg.src; };
+      wrap.dataset.status = "loaded";
+    })
+    .catch(() => { /* 静默：保持 placeholder */ });
+});
+
+// ─── 复制 Prompt 按钮 ───
+document.querySelectorAll(".copy-prompt").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const targetId = btn.dataset.target;
+    if (!targetId) return;
+    const pre = document.querySelector(`[data-prompt-id="${targetId}"]`);
+    if (!pre) return;
+    const text = pre.textContent || "";
+    navigator.clipboard.writeText(text).then(() => {
+      const orig = btn.textContent;
+      btn.textContent = "✓ 已复制";
+      btn.style.background = "rgba(104,211,145,0.18)";
+      btn.style.borderColor = "rgba(104,211,145,0.5)";
+      btn.style.color = "#68d391";
+      setTimeout(() => {
+        btn.textContent = orig;
+        btn.style.background = "";
+        btn.style.borderColor = "";
+        btn.style.color = "";
+      }, 1800);
+    });
+  });
+});
+</script>
+
+</body>
+</html>

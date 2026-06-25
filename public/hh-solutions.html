@@ -1,0 +1,1726 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>HappyHorse 实战短板 · 应对方案</title>
+<meta name="description" content="基于真实业务测试报告的 4 大短板（时长、小语种、循环动画、动画节奏）针对性解决方案与已落地工具。" />
+
+<style>
+:root {
+  --bg: #08080d;
+  --bg-elev: #0e0e16;
+  --bg-card: rgba(255, 255, 255, 0.025);
+  --bg-card-hover: rgba(255, 255, 255, 0.05);
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.18);
+  --text: #f5f5f7;
+  --text-dim: rgba(245, 245, 247, 0.62);
+  --text-faint: rgba(245, 245, 247, 0.38);
+
+  --accent-warn: #fc8181;     /* 警示红 */
+  --accent-amber: #f6ad55;    /* 暖橙 */
+  --accent-ok: #68d391;       /* 解决方案绿 */
+  --accent-info: #63b3ed;     /* 信息蓝 */
+  --accent-link: #b794f6;     /* 链接紫 */
+
+  --grad-hero: linear-gradient(135deg, #fc8181 0%, #f6ad55 50%, #68d391 100%);
+  --grad-warn: linear-gradient(135deg, rgba(252,129,129,0.12) 0%, rgba(246,173,85,0.06) 100%);
+  --grad-ok: linear-gradient(135deg, rgba(104,211,145,0.12) 0%, rgba(99,179,237,0.06) 100%);
+
+  --radius-sm: 6px;
+  --radius: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", "Microsoft YaHei", "Segoe UI", Roboto, sans-serif;
+  font-size: 15px;
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+  letter-spacing: 0.005em;
+  overflow-x: hidden;
+}
+img { max-width: 100%; display: block; }
+a { color: inherit; text-decoration: none; }
+code, pre { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+
+body::before, body::after {
+  content: "";
+  position: fixed;
+  pointer-events: none;
+  z-index: 0;
+  width: 60vw;
+  height: 60vw;
+  border-radius: 50%;
+  filter: blur(120px);
+  opacity: 0.16;
+}
+body::before {
+  background: radial-gradient(circle, var(--accent-warn), transparent 70%);
+  top: -20vw;
+  left: -20vw;
+}
+body::after {
+  background: radial-gradient(circle, var(--accent-ok), transparent 70%);
+  bottom: -20vw;
+  right: -20vw;
+}
+
+/* nav */
+.nav {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  background: rgba(8, 8, 13, 0.6);
+  border-bottom: 1px solid var(--border);
+}
+.nav-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 14px 32px;
+  display: flex;
+  align-items: center;
+  gap: 32px;
+}
+.nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  text-decoration: none;
+  color: inherit;
+  transition: opacity 0.15s;
+}
+.nav-brand:hover { opacity: 0.78; }
+.nav-brand .brand-back {
+  font-size: 18px;
+  color: var(--text-dim);
+  font-weight: 400;
+  line-height: 1;
+}
+/* 主页同款 logo —— italic serif + 紫斜杠 + sans-serif 小标签 */
+.nav-brand .logo {
+  font-family: "Times New Roman", Georgia, serif;
+  font-style: italic;
+  font-size: 22px;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  line-height: 1;
+  text-transform: none;
+}
+.nav-brand .logo .slash {
+  color: oklch(0.72 0.17 40); /* 主页同款 terracotta accent */
+  font-style: normal;
+}
+.nav-brand .logo b {
+  font-style: normal;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif;
+  font-weight: 500;
+  font-size: 13px;
+  vertical-align: 6px;
+  margin-left: 2px;
+  letter-spacing: 0.18em;
+}
+.nav-brand .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--grad-hero);
+  box-shadow: 0 0 10px var(--accent-warn);
+}
+.nav-links {
+  display: flex;
+  gap: 24px;
+  font-size: 13px;
+  color: var(--text-dim);
+  flex: 1;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.nav-links::-webkit-scrollbar { display: none; }
+.nav-links a {
+  white-space: nowrap;
+  transition: color 0.15s;
+}
+.nav-links a:hover { color: var(--text); }
+.nav-version {
+  font-size: 11px;
+  color: var(--text-faint);
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  flex-shrink: 0;
+}
+
+.hero {
+  padding: 100px 32px 60px;
+  max-width: 1200px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 1;
+}
+.hero-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border: 1px solid rgba(252, 129, 129, 0.3);
+  background: rgba(252, 129, 129, 0.06);
+  border-radius: 30px;
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-bottom: 28px;
+}
+.hero-eyebrow strong { color: var(--accent-warn); font-weight: 600; }
+.hero h1 {
+  font-size: clamp(36px, 5.5vw, 64px);
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  margin-bottom: 24px;
+}
+.hero h1 .grad {
+  background: var(--grad-hero);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.hero p.lead {
+  font-size: 19px;
+  color: var(--text-dim);
+  max-width: 760px;
+  line-height: 1.55;
+  margin-bottom: 32px;
+}
+.hero-source {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 14px 18px;
+  background: rgba(99, 179, 237, 0.06);
+  border: 1px solid rgba(99, 179, 237, 0.18);
+  border-radius: var(--radius);
+  font-size: 13px;
+  color: var(--text-dim);
+  line-height: 1.5;
+  max-width: 760px;
+}
+.hero-source strong { color: var(--accent-info); }
+
+/* 短板速览矩阵 */
+.matrix {
+  max-width: 1200px;
+  margin: 60px auto 40px;
+  padding: 0 32px;
+  position: relative;
+  z-index: 1;
+}
+.matrix-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+@media (max-width: 880px) { .matrix-grid { grid-template-columns: repeat(2, 1fr); } }
+.matrix-card {
+  padding: 18px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  text-align: center;
+}
+.matrix-icon { font-size: 28px; margin-bottom: 10px; }
+.matrix-label {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.matrix-sev {
+  font-size: 10.5px;
+  padding: 1px 8px;
+  border-radius: 10px;
+  display: inline-block;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+.matrix-sev.fatal { background: rgba(252,129,129,0.15); color: var(--accent-warn); }
+.matrix-sev.high { background: rgba(246,173,85,0.15); color: var(--accent-amber); }
+.matrix-sev.mid { background: rgba(246,173,85,0.1); color: var(--accent-amber); }
+
+/* 解决方案大卡 */
+.section {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 60px 32px;
+  position: relative;
+  z-index: 1;
+}
+
+.solution {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  margin-bottom: 28px;
+}
+.solution-head {
+  padding: 26px 32px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(255,255,255,0.015);
+}
+.solution-num {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--accent-amber);
+}
+.solution-titles {
+  flex: 1;
+  min-width: 0;
+}
+.solution-tag {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  color: var(--accent-warn);
+  margin-bottom: 6px;
+}
+.solution-title {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+.solution-tldr {
+  margin-top: 8px;
+  font-size: 14px;
+  color: var(--text-dim);
+  line-height: 1.55;
+}
+.solution-tldr strong {
+  color: var(--accent-ok);
+  font-weight: 600;
+}
+.solution-sev {
+  flex-shrink: 0;
+  padding: 4px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 14px;
+  letter-spacing: 0.05em;
+}
+.solution-sev.fatal {
+  background: rgba(252,129,129,0.15);
+  color: var(--accent-warn);
+  border: 1px solid rgba(252,129,129,0.3);
+}
+.solution-sev.high {
+  background: rgba(246,173,85,0.12);
+  color: var(--accent-amber);
+  border: 1px solid rgba(246,173,85,0.3);
+}
+.solution-sev.mid {
+  background: rgba(246,173,85,0.08);
+  color: var(--accent-amber);
+  border: 1px solid rgba(246,173,85,0.2);
+}
+
+.solution-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+}
+@media (max-width: 880px) {
+  .solution-body { grid-template-columns: 1fr; }
+  .sb-problem { border-right: none !important; border-bottom: 1px solid var(--border); }
+}
+.sb {
+  padding: 24px 32px;
+}
+.sb-problem {
+  background: rgba(252,129,129,0.04);
+  border-right: 1px solid var(--border);
+}
+.sb-solution {
+  background: rgba(104,211,145,0.04);
+}
+.sb-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sb-label.problem { color: var(--accent-warn); }
+.sb-label.solution { color: var(--accent-ok); }
+
+.sb-desc {
+  font-size: 14px;
+  color: var(--text);
+  margin-bottom: 14px;
+  line-height: 1.65;
+}
+.sb-quote {
+  margin-top: 14px;
+  padding: 10px 14px;
+  background: rgba(0,0,0,0.25);
+  border-left: 3px solid rgba(252,129,129,0.4);
+  border-radius: var(--radius-sm);
+  font-size: 12.5px;
+  color: var(--text-dim);
+  line-height: 1.6;
+  font-style: italic;
+}
+.sb-quote::before { content: "❝ "; color: var(--accent-warn); }
+
+.sb-steps {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  counter-reset: step;
+}
+.sb-steps li {
+  position: relative;
+  padding: 8px 0 8px 32px;
+  font-size: 13.5px;
+  color: var(--text);
+  line-height: 1.6;
+  counter-increment: step;
+}
+.sb-steps li::before {
+  content: counter(step);
+  position: absolute;
+  left: 0;
+  top: 8px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(104,211,145,0.15);
+  color: var(--accent-ok);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+}
+.sb-steps li strong {
+  color: var(--accent-ok);
+  font-weight: 600;
+}
+
+.sb-tool {
+  margin-top: 16px;
+  padding: 12px 14px;
+  background: rgba(183,148,246,0.06);
+  border: 1px solid rgba(183,148,246,0.2);
+  border-radius: var(--radius-sm);
+  font-size: 12.5px;
+  color: var(--text);
+  line-height: 1.55;
+}
+.sb-tool-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--accent-link);
+  margin-bottom: 6px;
+}
+.sb-tool a {
+  color: var(--accent-link);
+  text-decoration: underline;
+  text-decoration-color: rgba(183,148,246,0.4);
+  text-underline-offset: 2px;
+}
+.sb-tool a:hover { text-decoration-color: var(--accent-link); }
+
+/* 代码片段 box */
+.sb-code {
+  margin-top: 14px;
+  padding: 14px 16px;
+  background: rgba(0,0,0,0.4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.7;
+  color: rgba(245,245,247,0.85);
+  overflow-x: auto;
+  white-space: pre;
+  max-height: 320px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.15) transparent;
+}
+.sb-code::-webkit-scrollbar { width: 6px; height: 6px; }
+.sb-code::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
+.sb-code-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--accent-info);
+  margin-top: 16px;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.sb-code-label::before { content: "{ }"; opacity: 0.7; }
+.sb-code .cmt { color: rgba(104,211,145,0.7); }
+.sb-code .key { color: var(--accent-amber); }
+.sb-code .str { color: var(--accent-info); }
+.sb-code .var { color: var(--accent-link); }
+
+/* 演示视频 */
+.sb-video {
+  margin-top: 14px;
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 1px solid rgba(104,211,145,0.25);
+  background: #000;
+  max-height: 360px;
+  width: 100%;
+}
+.sb-video video {
+  width: 100%;
+  height: auto;
+  max-height: 360px;
+  object-fit: contain;
+  display: block;
+  background: #000;
+}
+.sb-video-caption {
+  padding: 8px 12px;
+  background: rgba(104,211,145,0.06);
+  font-size: 11.5px;
+  color: var(--text-dim);
+  line-height: 1.55;
+  border-top: 1px solid rgba(104,211,145,0.15);
+}
+.sb-video-caption strong { color: var(--accent-ok); }
+
+/* 60s 实战记录 box */
+.superlong-record {
+  margin-top: 24px;
+  padding: 24px;
+  background: linear-gradient(135deg, rgba(183,148,246,0.08) 0%, rgba(99,179,237,0.04) 100%);
+  border: 1px solid rgba(183,148,246,0.25);
+  border-radius: var(--radius-lg);
+}
+.superlong-record-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.superlong-record-tag {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  color: var(--accent-link);
+  padding: 3px 10px;
+  background: rgba(183,148,246,0.12);
+  border-radius: 12px;
+}
+.superlong-record-title {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+.superlong-record-spec {
+  margin-left: auto;
+  font-size: 11.5px;
+  color: var(--text-dim);
+  padding: 3px 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.superlong-record-desc {
+  font-size: 14px;
+  color: var(--text);
+  line-height: 1.65;
+  margin: 8px 0 16px;
+}
+.superlong-record-desc strong { color: var(--accent-amber); }
+
+.superlong-decisions {
+  background: rgba(0,0,0,0.25);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  margin-top: 8px;
+}
+.superlong-row {
+  display: grid;
+  grid-template-columns: 1fr 1.5fr;
+  gap: 16px;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+@media (max-width: 720px) {
+  .superlong-row { grid-template-columns: 1fr; gap: 4px; }
+}
+.superlong-row:last-child { border-bottom: none; }
+.superlong-q {
+  color: var(--accent-link);
+  font-weight: 600;
+}
+.superlong-a { color: var(--text); }
+
+/* V1 对照实验 */
+.v1-ablation {
+  margin-top: 20px;
+  padding: 22px 24px;
+  background: rgba(243,191,109,0.04);
+  border: 1px solid rgba(243,191,109,0.25);
+  border-radius: var(--radius-lg);
+}
+.v1-ablation-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.v1-ablation-tag {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  color: var(--accent-amber);
+  padding: 3px 10px;
+  background: rgba(243,191,109,0.12);
+  border-radius: 12px;
+}
+.v1-ablation-title {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+.v1-ablation-status {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text-dim);
+  padding: 3px 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.v1-ablation-desc {
+  font-size: 14px;
+  color: var(--text);
+  line-height: 1.65;
+  margin: 8px 0 14px;
+}
+.v1-ablation-desc strong { color: var(--accent-amber); }
+.ab-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-top: 12px;
+}
+@media (max-width: 720px) { .ab-grid { grid-template-columns: 1fr; } }
+.ab-cell {
+  padding: 12px 14px;
+  background: rgba(0,0,0,0.2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--text-dim);
+}
+.ab-cell strong {
+  display: block;
+  font-size: 12.5px;
+  color: var(--accent-link);
+  margin-bottom: 6px;
+}
+
+/* 方案 B · 探索方向 */
+.approach-b {
+  margin-top: 20px;
+  padding: 22px 24px;
+  background: rgba(99,179,237,0.04);
+  border: 1px dashed rgba(99,179,237,0.35);
+  border-radius: var(--radius-lg);
+}
+.approach-b-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.approach-b-tag {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  color: var(--accent-info);
+  padding: 3px 10px;
+  background: rgba(99,179,237,0.12);
+  border-radius: 12px;
+}
+.approach-b-title {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+.approach-b-status {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--accent-amber);
+  padding: 3px 10px;
+  border: 1px solid rgba(243,191,109,0.4);
+  border-radius: 12px;
+}
+.approach-b-desc {
+  font-size: 14px;
+  color: var(--text);
+  line-height: 1.65;
+  margin: 8px 0 14px;
+}
+.approach-b-desc strong { color: var(--accent-info); }
+.approach-b-compare {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-top: 14px;
+}
+@media (max-width: 720px) { .approach-b-compare { grid-template-columns: 1fr; } }
+.approach-b-compare > div {
+  padding: 12px 14px;
+  background: rgba(0,0,0,0.2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.approach-b-compare strong {
+  display: block;
+  font-size: 12.5px;
+  color: var(--accent-link);
+  margin-bottom: 8px;
+}
+.approach-b-compare ul {
+  margin: 0;
+  padding-left: 16px;
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--text-dim);
+}
+.approach-b-source {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  font-size: 11.5px;
+  color: var(--text-dim);
+}
+
+/* 实施路径卡 */
+.roadmap {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-top: 24px;
+}
+@media (max-width: 880px) { .roadmap { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 520px) { .roadmap { grid-template-columns: 1fr; } }
+
+.roadmap-card {
+  padding: 22px 20px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  position: relative;
+  overflow: hidden;
+}
+.roadmap-card::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+}
+.roadmap-card.live::before { background: var(--accent-ok); }
+.roadmap-card.wip::before { background: var(--accent-amber); }
+.roadmap-card.plan::before { background: var(--accent-info); }
+
+.roadmap-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  padding: 3px 10px;
+  border-radius: 12px;
+  margin-bottom: 14px;
+}
+.roadmap-status.live {
+  background: rgba(104,211,145,0.14);
+  color: var(--accent-ok);
+}
+.roadmap-status.wip {
+  background: rgba(246,173,85,0.14);
+  color: var(--accent-amber);
+}
+.roadmap-status.plan {
+  background: rgba(99,179,237,0.14);
+  color: var(--accent-info);
+}
+.roadmap-status::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.roadmap-status.live::before { animation: rm-pulse 2s ease-in-out infinite; }
+@keyframes rm-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 currentColor; opacity: 1; }
+  50% { box-shadow: 0 0 0 4px transparent; opacity: 0.5; }
+}
+
+.roadmap-title {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin-bottom: 8px;
+  line-height: 1.35;
+}
+.roadmap-meta {
+  font-size: 12.5px;
+  color: var(--text-dim);
+  line-height: 1.6;
+  margin-bottom: 14px;
+}
+.roadmap-eta {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text);
+  padding: 6px 0;
+  border-top: 1px dashed var(--border-strong);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.roadmap-eta-label {
+  color: var(--text-faint);
+  font-weight: 500;
+  letter-spacing: 0.05em;
+}
+
+/* 选型矩阵表（方案4用） */
+.choice-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: rgba(0,0,0,0.2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  font-size: 13px;
+  margin-top: 14px;
+}
+.choice-table th, .choice-table td {
+  padding: 10px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+.choice-table th {
+  font-size: 11.5px;
+  color: var(--text-dim);
+  letter-spacing: 0.05em;
+  font-weight: 600;
+  background: rgba(255,255,255,0.02);
+}
+.choice-table tr:last-child td { border-bottom: none; }
+.choice-table .rec { color: var(--accent-ok); font-weight: 600; }
+.choice-table .alt { color: var(--text-dim); }
+
+/* footer */
+.footer {
+  padding: 50px 32px 40px;
+  max-width: 1200px;
+  margin: 60px auto 0;
+  border-top: 1px solid var(--border);
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-faint);
+  position: relative;
+  z-index: 1;
+}
+.footer-links {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.footer-links a {
+  color: var(--text-dim);
+  transition: color 0.15s;
+}
+.footer-links a:hover { color: var(--text); }
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+.nav-brand .dot { animation: pulse 2.4s ease-in-out infinite; }
+
+/* ─── 能力扩展章节（sol 5-8） ─── */
+.ext-divider {
+  margin: 60px 0 32px;
+  padding: 32px 0;
+  text-align: center;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.ext-divider-tag {
+  display: inline-block;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  color: var(--accent-info);
+  padding: 4px 14px;
+  background: rgba(99,179,237,0.08);
+  border: 1px solid rgba(99,179,237,0.25);
+  border-radius: 14px;
+  margin-bottom: 16px;
+}
+.ext-divider-title {
+  font-size: clamp(24px, 3.5vw, 36px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  margin-bottom: 12px;
+}
+.ext-divider-title .grad {
+  background: linear-gradient(135deg, #63b3ed 0%, #b794f6 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.ext-divider-lead {
+  font-size: 15px;
+  color: var(--text-dim);
+  max-width: 720px;
+  margin: 0 auto;
+  line-height: 1.6;
+}
+
+/* sol 5-8 的 sev 章节用扩展色调 */
+.solution-sev.ext {
+  background: rgba(99,179,237,0.12);
+  color: var(--accent-info);
+}
+
+/* A/B 对比视频卡 */
+.ab-demo {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin-top: 20px;
+}
+@media (max-width: 820px) { .ab-demo { grid-template-columns: 1fr; } }
+.ab-demo-cell {
+  display: flex;
+  flex-direction: column;
+  background: rgba(0,0,0,0.2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.ab-demo-cell.a-side { border-top: 3px solid var(--accent-warn); }
+.ab-demo-cell.b-side { border-top: 3px solid var(--accent-ok); }
+.ab-demo-label {
+  padding: 10px 16px;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  background: rgba(0,0,0,0.3);
+  border-bottom: 1px solid var(--border);
+}
+.ab-demo-cell.a-side .ab-demo-label { color: var(--accent-warn); }
+.ab-demo-cell.b-side .ab-demo-label { color: var(--accent-ok); }
+.ab-demo-cell video {
+  width: 100%;
+  aspect-ratio: 9 / 16;
+  object-fit: contain;
+  background: #000;
+  display: block;
+}
+.ab-demo-caption {
+  padding: 12px 16px;
+  font-size: 12.5px;
+  color: var(--text-dim);
+  line-height: 1.55;
+  flex: 1;
+}
+.ab-demo-caption strong { color: var(--text); }
+
+/* sol 7 运镜库：3 列 B 排版 */
+.camera-trio {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 14px;
+  margin-top: 16px;
+}
+@media (max-width: 820px) { .camera-trio { grid-template-columns: 1fr; } }
+.camera-trio .ab-demo-cell { border-top-color: var(--accent-link); }
+.camera-trio .ab-demo-label { color: var(--accent-link); }
+
+/* sol 8 服装变体：4 列网格 */
+.wardrobe-quad {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-top: 16px;
+}
+@media (max-width: 980px) { .wardrobe-quad { grid-template-columns: repeat(2, 1fr); } }
+.wardrobe-quad .ab-demo-cell video { aspect-ratio: 9 / 16; }
+</style>
+</head>
+<body>
+
+<header class="nav">
+  <div class="nav-inner">
+    <a href="/" class="nav-brand" title="返回 Frame/0 主页">
+      <span class="brand-back" aria-hidden="true">←</span>
+      <span class="logo">Frame<span class="slash">/</span>0 <b>SOLUTIONS</b></span>
+    </a>
+    <nav class="nav-links">
+      <a href="#sol-1">超长视频</a>
+      <a href="#sol-2">多语言配音</a>
+      <a href="#sol-3">循环动画</a>
+      <a href="#sol-4">场景化选型</a>
+      <a href="#ext">+ 能力扩展</a>
+      <a href="#roadmap">实施路径</a>
+      <a href="/hh-guide.html">← HH 指南</a>
+    </nav>
+    <span class="nav-version">实战版</span>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="hero-eyebrow">
+    <span>基于业务测试报告 · 给出可落地的工程方案</span>
+  </div>
+  <h1>
+    4 大实战短板<br>
+    <span class="grad">→ 4 大应对方案</span>
+  </h1>
+  <p class="lead">
+    《Happyhorse 测试报告》给出 4 个能力边界：2 个致命、1 个严重、1 个差距较大。本文档逐一给出可落地的工程应对，并指向项目里已实现的对应工具。
+  </p>
+  <div class="hero-source">
+    <span><strong>数据来源：</strong>南海业务侧《Happyhorse 测试报告》——买量侧（真人画面 + 小语种）+ 动效侧（动画质感 + 循环动画）实测</span>
+  </div>
+
+  <div class="matrix">
+    <div class="matrix-grid">
+      <div class="matrix-card">
+        <div class="matrix-icon">🚫</div>
+        <div class="matrix-label">时长上限 15s</div>
+        <div class="matrix-sev fatal">致命</div>
+      </div>
+      <div class="matrix-card">
+        <div class="matrix-icon">🌐</div>
+        <div class="matrix-label">小语种发音</div>
+        <div class="matrix-sev fatal">致命</div>
+      </div>
+      <div class="matrix-card">
+        <div class="matrix-icon">♻️</div>
+        <div class="matrix-label">循环动画</div>
+        <div class="matrix-sev high">严重</div>
+      </div>
+      <div class="matrix-card">
+        <div class="matrix-icon">⚡</div>
+        <div class="matrix-label">动画节奏</div>
+        <div class="matrix-sev mid">中度</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── 方案 1：超长视频生成 ─── -->
+<section class="section" id="sol-1">
+  <article class="solution">
+    <div class="solution-head">
+      <div class="solution-num">01</div>
+      <div class="solution-titles">
+        <div class="solution-tag">PROBLEM &amp; SOLUTION</div>
+        <h2 class="solution-title">超长视频生成（突破 15 秒上限）</h2>
+        <p class="solution-tldr">R2V 链式拼接 + 4 层一致性锚定，<strong>60s 实战 demo 已跑通</strong>，已在 Studio 工坊上线</p>
+      </div>
+      <span class="solution-sev fatal">致命</span>
+    </div>
+    <div class="solution-body">
+      <div class="sb sb-problem">
+        <div class="sb-label problem">● 实测短板</div>
+        <p class="sb-desc">HappyHorse 单次生成上限 <strong>15 秒</strong>，长素材（30s / 60s / 90s 投流视频）无法直接产出，prompt 上约束失败。</p>
+        <div class="sb-quote">最致命的是无法制作视频延长，只能最多 15s 视频，无法满足买量侧素材生成。<br>— 买量侧测试结论</div>
+      </div>
+      <div class="sb sb-solution">
+        <div class="sb-label solution">● 我们的应对：R2V 链式生成（4 层一致性锚定）</div>
+        <p class="sb-desc">把多个 15s 段<strong>串行拼接</strong>，<strong>全部段用 R2V</strong>（不再纯 I2V），通过 <strong>4 层锚定</strong>解决"角色漂移"和"尾帧无内容"两个核心痛点：</p>
+        <ol class="sb-steps">
+          <li><strong>任务定义全局注入</strong>：顶部 textarea 写主角与场景描述，自动 prepend 到<strong>每段</strong> prompt 开头</li>
+          <li><strong>锚点参考图全段共享</strong>：从源 job 继承的角色/场景参考图，每段都喂进去，人物身份不再依赖单帧</li>
+          <li><strong>段 2+ 切到 R2V 模式</strong>：每段 refs = 锚点 refs + 上段衔接帧。R2V 同时锚定<em>"我是谁（锚点）"</em>与<em>"我刚才在做什么（衔接帧）"</em></li>
+          <li><strong>尾帧 3 帧候选</strong>：本段完成后提取最后 1.5s 内 3 帧，UI 缩略让用户挑选（默认末帧；空镜/转场时可改选含主体的早帧）</li>
+          <li>循环重复，按段拼接</li>
+        </ol>
+        <div class="sb-tool">
+          <div class="sb-tool-label">项目里已实现</div>
+          <strong>Studio 工坊 · 「链式」按钮</strong>支持：任务定义输入框、锚点参考图多选、段 2+ R2V 模式、3 帧候选选择器（<a href="/">Studio 入口</a>）。每段独立可重试、错误隔离、实时进度展示。
+        </div>
+
+        <div class="sb-code-label">V1（旧 I2V） → V2（R2V + 锚点）核心差异</div>
+<pre class="sb-code"><span class="cmt"># V1：</span>段 2 = i2v(上段尾帧)
+       <span class="cmt">↑ 只看 1 帧 → 3 段后角色漂移</span>
+
+<span class="cmt"># V2：</span>段 2 = r2v(<span class="var">reference_urls</span>: [锚点角色图, 锚点场景图, 用户选的尾帧])
+       <span class="cmt">↑ 身份 + 环境 + 衔接 三层锚定</span></pre>
+
+        <div class="sb-video">
+          <video src="/hh-cases/case-02.mp4" controls muted preload="metadata" playsinline></video>
+          <div class="sb-video-caption">
+            <strong>HH 单段 10 秒极限范例：</strong>公园女子动作链 · 单段塞 5 个动作节点。下方是用 V2 链式真实跑出的 <strong>60 秒</strong> demo（4 段 × 15s 拼接）。
+          </div>
+        </div>
+
+        <!-- 🆕 60s 实战记录 —— 完整可复现的链路 -->
+        <div class="superlong-record">
+          <div class="superlong-record-head">
+            <span class="superlong-record-tag">CASE STUDY</span>
+            <h3 class="superlong-record-title">60 秒超长视频实战记录</h3>
+            <span class="superlong-record-spec">9:16 竖屏 · 5+4×15s · 共 5 次模型调用</span>
+          </div>
+
+          <p class="superlong-record-desc">
+            <strong>主题：</strong>韩系治愈日常 vlog ——25 岁清秀女生的一日四时刻。<strong>构图策略：</strong>以 3/4 侧脸、手部、背影为主，规避正脸大特写——HH 长视频对脸部高频细节容易漂移，主动用构图把视觉焦点分散到运镜与场景上。
+          </p>
+
+          <!-- 流程图 -->
+          <div class="sb-code-label">生产链路（5 段调用 + 拼接）</div>
+<pre class="sb-code"><span class="cmt"># Step 0  T2V 5s 种子段 → ffmpeg 提中段帧 → 上传 OSS（拿锚点）</span>
+<span class="cmt"># Step 1  R2V 15s · refs=[锚点]            → 卧室晨起</span>
+<span class="cmt"># Step 2  R2V 15s · refs=[锚点 + 段1尾帧]  → 衣帽间挑衣</span>
+<span class="cmt"># Step 3  R2V 15s · refs=[锚点 + 段2尾帧]  → 吧台冲咖啡</span>
+<span class="cmt"># Step 4  R2V 15s · refs=[锚点 + 段3尾帧]  → 玄关出门</span>
+<span class="cmt"># Step 5  ffmpeg concat -c copy 拼成 60s   → 无损拼接</span></pre>
+
+          <!-- 决策表 -->
+          <div class="sb-code-label">关键技术决策</div>
+          <div class="superlong-decisions">
+            <div class="superlong-row"><span class="superlong-q">为什么段 1+ 全用 R2V，不用 I2V？</span><span class="superlong-a">I2V 只看 1 帧，4 段后主角脸明显漂移（见下方 V1 对照实验）；R2V 同时看锚点 + 衔接帧，人物身份持续锁定</span></div>
+            <div class="superlong-row"><span class="superlong-q">为什么 4 段而不是 6 段 10s？</span><span class="superlong-a">段数少 → 漂移机会少；15s 是 HH 单段上限，4 段刚好 60s</span></div>
+            <div class="superlong-row"><span class="superlong-q">为什么避开正脸大特写？</span><span class="superlong-a">HH 在长视频里对脸部高频细节（眼睛、嘴角）容易漂移；改用 3/4 侧脸 + 手部 + 背影构图，把视觉焦点分散到运镜与场景</span></div>
+            <div class="superlong-row"><span class="superlong-q">拼接为什么 -c copy？</span><span class="superlong-a">不重编码 → 零质量损失；4 段同分辨率/帧率 9:16 720P，concat 协议直接拼</span></div>
+          </div>
+
+          <!-- 最终 60s 视频 -->
+          <div class="sb-video" style="margin-top: 20px;">
+            <video src="/hh-cases/superlong-60s.mp4" controls muted preload="metadata" playsinline></video>
+            <div class="sb-video-caption">
+              <strong>最终产出：</strong>60 秒 / 31.6 MB / 9:16 720P。4 段 × 15s 拼接，韩系治愈一日 vlog 叙事。<strong>已知限制：</strong>段 3、段 4 的场景切换（厨房、玄关）未完全执行到位，R2V 模式倾向于延续锚点环境，需在 prompt 中进一步强化场景切换指令或单独重跑。
+            </div>
+          </div>
+        </div>
+
+        <!-- V1 对照实验：I2V 链式（同 prompt 同 anchor，无锚点参考） -->
+        <div class="v1-ablation">
+          <div class="v1-ablation-head">
+            <span class="v1-ablation-tag">ABLATION</span>
+            <h3 class="v1-ablation-title">V1 对照实验 · I2V 链式（同 prompt、同 anchor、无锚点参考）</h3>
+            <span class="v1-ablation-status">仅用于对比</span>
+          </div>
+          <p class="v1-ablation-desc">
+            为验证 V1 → V2 的选型依据，<strong>用同一份 anchor.jpg + 完全一致的任务定义和段 prompt</strong>，跑了一版纯 I2V 链式 60s（4 段，每段起头帧 = 上段尾帧）。结果<strong>正向印证 R2V 选型</strong>：I2V 场景执行更听 prompt（咖啡杯、风衣都出现了），但 4 段后<strong>主角脸明显漂移成另一个人</strong>；R2V 因锚点参考压制场景切换换来身份稳定。两者是一对此消彼长的工程选择。
+          </p>
+
+          <div class="sb-video">
+            <video src="/hh-cases/superlong-60s-i2v.mp4" controls muted preload="metadata" playsinline></video>
+            <div class="sb-video-caption">
+              <strong>I2V 60s 对照视频：</strong>60 秒 / 34.9 MB / 9:16 720P，5 次模型调用省成 4 次（无 T2V 种子段）。
+            </div>
+          </div>
+
+          <div class="ab-grid">
+            <div class="ab-cell">
+              <strong>R2V（方案 A · 已选）赢点</strong>
+              主角身份 4 段一致；服装、发型、肤色无漂移；适合人物 IP 类、形象敏感场景
+            </div>
+            <div class="ab-cell">
+              <strong>R2V 痛点</strong>
+              段 3、4 的场景被锚点拽住，"切到厨房/玄关"指令执行不到位
+            </div>
+            <div class="ab-cell">
+              <strong>I2V（V1 对照）赢点</strong>
+              场景执行强：咖啡杯、风衣、玄关镜都按 prompt 出现；段间动作更丰富
+            </div>
+            <div class="ab-cell">
+              <strong>I2V 痛点</strong>
+              4 段后主角脸明显漂移；适合<em>不依赖主角身份</em>的场景叙事（产品演示/旅拍空镜）
+            </div>
+          </div>
+        </div>
+
+        <!-- 方案 B · 探索方向（待验证） -->
+        <div class="approach-b">
+          <div class="approach-b-head">
+            <span class="approach-b-tag">EXPLORATION</span>
+            <h3 class="approach-b-title">方案 B · Storyboard-as-Reference</h3>
+            <span class="approach-b-status">待验证</span>
+          </div>
+          <p class="approach-b-desc">
+            <strong>GPT Image 2</strong> 一句话生成 12 格分镜图（单图自带 4 个镜头描述）；HH 在一段 15s 视频里按 storyboard 顺序演绎 4 个镜头。把多张参考图压缩成<strong>一张多格图作为内嵌一致性源</strong>，每 15s 段塞 4 镜头。横切 storyboard 3 行 → 3 段 = 45s；GPT 续写第二页 → 90s。
+          </p>
+
+          <div class="sb-code-label">Prompt 模板</div>
+<pre class="sb-code">Generate a scene using the shots in the uploaded film storyboard.
+
+First 4 seconds:  &lt;shot 1 描述&gt;
+4–8 seconds:      &lt;shot 2 描述&gt;
+8–12 seconds:     &lt;shot 3 描述&gt;
+12–15 seconds:    &lt;shot 4 描述&gt;
+
+no music, no subtitles</pre>
+
+          <div class="approach-b-compare">
+            <div>
+              <strong>vs 方案 A（R2V 链式 · 已上线）</strong>
+              <ul>
+                <li>调用次数：5 次 → 3-6 次（每段塞 4 镜头）</li>
+                <li>一致性源：OSS 锚点参考图 → 单张多格 storyboard</li>
+                <li>段间衔接：尾帧上传 → storyboard 顺序自带节奏</li>
+                <li>图像端依赖：无 → GPT Image 2</li>
+              </ul>
+            </div>
+            <div>
+              <strong>未验证的风险点</strong>
+              <ul>
+                <li>HH 是否真的能按时间顺序"读"横向 storyboard</li>
+                <li>15s 内塞 4 镜头（每镜 3.75s），节奏控制能否到位</li>
+                <li>GPT Image 2 跨页续写的一致性如何</li>
+                <li>"no music / no subtitles" 指令服从度</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="approach-b-source">
+            <strong>来源：</strong>Source #1 · ⭐ 技巧 1：Storyboard-as-Reference。<strong>下一步：</strong>跑通最小验证 demo（1 段 15s 测 4 镜头节奏 + 跨段一致性测试），决定是否升级为生产管线。
+          </div>
+        </div>
+
+        <!-- 方案 C · 多 anchor 切换（PDF 审计补丁） -->
+        <div class="approach-b">
+          <div class="approach-b-head">
+            <span class="approach-b-tag">EXPLORATION</span>
+            <h3 class="approach-b-title">方案 C · 多 anchor 切换（解决 R2V 场景被锁问题）</h3>
+            <span class="approach-b-status">待验证</span>
+          </div>
+          <p class="approach-b-desc">
+            从 60s 实战记录里看到的 R2V <strong>已知限制</strong>：段 3、段 4 的场景切换执行不到位。原因是单一 anchor 把环境也锁住了。<strong>方案 C：每段配独立 anchor</strong>——段 1 用「卧室晨起」anchor，段 2 切到「衣帽间」anchor，段 3 切到「咖啡馆吧台」anchor，段 4 切到「玄关」anchor。主体一致性靠 character 锁定，环境一致性靠 anchor 切换。
+          </p>
+
+          <div class="approach-b-compare">
+            <div>
+              <strong>vs 方案 A（单 anchor R2V）</strong>
+              <ul>
+                <li>主体身份：A 单 anchor 锁住主角 + 环境；C 多 anchor 只锁主角，环境跟随 anchor 变</li>
+                <li>场景叙事：A 段 3+4 场景偏离 prompt；C 每段都按 anchor 锁场景</li>
+                <li>调用成本：A = 1 个 anchor；C = 4 个 anchor（需提前准备）</li>
+              </ul>
+            </div>
+            <div>
+              <strong>未验证的风险点</strong>
+              <ul>
+                <li>4 段间 anchor 跳跃，转场是否突兀</li>
+                <li>主角脸是否会随每段 anchor 切换微漂移</li>
+                <li>4 张 anchor 制作成本（image-gen 模型成熟度）</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="approach-b-source">
+            <strong>来源：</strong>PDF 覆盖审计 + 60s 实战观察（R2V 段 3、4 场景执行不到位）。<strong>下一步：</strong>跑 1 个 60s 多 anchor 链式 demo，对比单 anchor 版本的场景执行度。
+          </div>
+        </div>
+
+        <!-- 方案 9 · Hook-Every-5s（YouTube 研究） -->
+        <div class="approach-b">
+          <div class="approach-b-head">
+            <span class="approach-b-tag">EXPLORATION</span>
+            <h3 class="approach-b-title">方案 9 · 5 秒一钩剧本结构（Hook-Every-5s）</h3>
+            <span class="approach-b-status">待验证</span>
+          </div>
+          <p class="approach-b-desc">
+            Grok 60s Hack（<strong>309.9K 播放</strong>）的核心不是末帧串联，而是<strong>剧本侧的结构化约束</strong>：60s 切成 12 个 5s 钩子点，每点必须有<strong>动作变化 / 情绪反转 / 物体出现 / 光线变化</strong>之一。HH 单段 15s = 3 个钩子位，4 段刚好 12 个钩子覆盖完整长片。"AI 视频也可以有节奏"——观众第一次看到非平铺直叙的 AI 长片。
+          </p>
+
+          <div class="sb-code-label">Scriptwriter Prompt 模板</div>
+<pre class="sb-code">任务：写一个 ${duration}s 故事
+约束：1) 主角数 ≤ 2  2) 每 5s 一个 hook（hook 类型从 {动作 / 情绪 / 物体出现 / 光线变化} 选）
+      3) 高张力开头，闭环结尾  4) 场景统一（不引入新地点除非剧本允许）
+输出：JSON 数组，每段 5-8s，对应 visual_action / emotion / hook_type
+       <span class="cmt">// 后端把 12 个 hook 自动映射成 4 段 × 15s 的 HH chain prompt</span></pre>
+
+          <div class="approach-b-source">
+            <strong>来源：</strong><a href="https://www.youtube.com/watch?v=K5j47JWr9_g" target="_blank" rel="noopener">Grok 60s Hack · 309.9K 播放</a>。<strong>下一步：</strong>双对照 demo——「无 hook 约束」vs「12 hook 约束」生成同一 60s 故事，并排播放标注 hook 时间戳。
+          </div>
+        </div>
+
+        <!-- 方案 10 · 三段式自动分镜（YouTube 研究） -->
+        <div class="approach-b">
+          <div class="approach-b-head">
+            <span class="approach-b-tag">EXPLORATION</span>
+            <h3 class="approach-b-title">方案 10 · Synopsis → Storyboard → Visual Description 三段式自动分镜</h3>
+            <span class="approach-b-status">待验证（P0 推荐）</span>
+          </div>
+          <p class="approach-b-desc">
+            Midjourney + Runway 课程（<strong>319.8K 播放</strong>）给出的工业级 pipeline 关键不在模型本身，而在 <strong>ChatGPT 三段式跑分镜</strong>：① 一句 logline → 16 句 synopsis；② synopsis → 16-scene storyboard JSON；③ 每 scene → 精细 visual description（喂给视频模型）。当前 HH 让用户直接写 prompt 跳过前两层，导致镜头随意。<strong>这是从「prompt 工程」升级到「分镜导演工作流」的关键</strong>。
+          </p>
+
+          <div class="sb-code-label">三段式 API 设计</div>
+<pre class="sb-code"><span class="cmt"># POST /api/storyboard</span>
+input:  { logline, duration, style_tags }
+step1:  LLM → synopsis （按时长切句）
+step2:  LLM → storyboard JSON （每镜：景别 / 动作 / 情绪 / 光线 / 时长）
+step3:  LLM → 五要素 prompt 数组 （直接喂 HH）
+output: { synopsis, storyboard[], prompts[] }
+        <span class="cmt">// 用户在 step2 可手动改 scene 顺序 / 添加镜头，然后一键批生成</span></pre>
+
+          <div class="approach-b-compare">
+            <div>
+              <strong>价值（按汇报亮点）</strong>
+              <ul>
+                <li>把 HH 从「单 prompt 抽奖」升级到「分镜导演工作流」</li>
+                <li>用户可干预的环节多（step2 改 scene 顺序）</li>
+                <li>LLM 层包装，HH 不需要任何升级即可受益</li>
+              </ul>
+            </div>
+            <div>
+              <strong>实现难度</strong>
+              <ul>
+                <li>纯 LLM 前置层，落地难度低</li>
+                <li>需要前端拖拽重排 scene 卡片</li>
+                <li>与 sol-1 R2V 链式 + sol-6 五要素 prompt 天然衔接</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="approach-b-source">
+            <strong>来源：</strong><a href="https://www.youtube.com/watch?v=qQVDTX4qDbM" target="_blank" rel="noopener">Midjourney + Runway 完整课程 · 319.8K 播放</a>。<strong>下一步：</strong>POC 三段式 API，用一句 logline 自动产出 60s storyboard + 4 段 R2V prompts。
+          </div>
+        </div>
+      </div>
+    </div>
+  </article>
+</section>
+
+<!-- ─── 方案 2：多语言配音 ─── -->
+<section class="section" id="sol-2">
+  <article class="solution">
+    <div class="solution-head">
+      <div class="solution-num">02</div>
+      <div class="solution-titles">
+        <div class="solution-tag">PROBLEM &amp; SOLUTION</div>
+        <h2 class="solution-title">小语种配音（音画分离工作流）</h2>
+        <p class="solution-tldr">HH 只负责画面、配音交给专业 TTS + 对口型，<strong>同一画面 × N 种语言</strong>，一次画面投入多语言素材产出</p>
+      </div>
+      <span class="solution-sev fatal">致命</span>
+    </div>
+    <div class="solution-body">
+      <div class="sb sb-problem">
+        <div class="sb-label problem">● 实测短板</div>
+        <p class="sb-desc">阿拉伯语、印地语等小语种发音"AI 感强、不像真人"，无法直接投放至小语种地区。和 seedance 一样存在这个问题。</p>
+        <div class="sb-quote">阿拉伯语：只是好了一些，但还是很奇怪；发音他们觉得很奇怪；都听出来是 AI 音，不像真人。<br>— 阿拉伯语运营评价</div>
+      </div>
+      <div class="sb sb-solution">
+        <div class="sb-label solution">● 我们的应对：音画分离 + 本地化形象库</div>
+        <p class="sb-desc">PDF 报告里阿拉伯语运营反馈"<strong>他们的模型不太</strong>"——这不只是配音问题，还包括<strong>中东 / 南亚人脸的形象真实度</strong>。所以方案是两层：<strong>(A) 音画分离</strong>解决"声音"；<strong>(B) 本地化形象库</strong>解决"脸"。</p>
+        <ol class="sb-steps">
+          <li><strong>Prompt 端</strong>：用「内心独白」模式（角色嘴唇全程闭合）避免 HH 自己尝试小语种发音</li>
+          <li><strong>专业 TTS 出音</strong>：阿里云语音合成 / ElevenLabs 多语言 / 火山引擎 — 选有真人录音库的厂商</li>
+          <li><strong>对口型</strong>（可选）：SadTalker / wav2lip / muscle-talk 等开源工具把配音对齐到视频口型</li>
+          <li><strong>多语种快速产出</strong>：同一画面 × N 种语言配音，一次画面投入产出多语言素材</li>
+          <li><strong>本地化形象库（新加）</strong>：沉淀中东男女 / 南亚男女各 5-10 张高质量 anchor 参考图，R2V 调用时用 character1 锁定本地化形象，<strong>避免 HH 默认偏白人 / 东亚的训练倾向</strong>。覆盖 PDF 的 P3 / P4 痛点</li>
+        </ol>
+        <div class="sb-tool">
+          <div class="sb-tool-label">项目里已实现</div>
+          <strong>万花筒预设 · 真人短剧</strong>规则中已包含「内心独白处理」段：<em>"角色嘴唇全程闭合，音频层保留独白声音，画面层禁止任何张嘴动作"</em>（<a href="/">Card2 万花筒</a>）。
+        </div>
+
+        <div class="sb-code-label">关键调用骨架（TTS → 合并 → 对口型）</div>
+<pre class="sb-code"><span class="cmt"># 1. 阿里云 NLS 生成阿拉伯语配音</span>
+curl -X POST <span class="str">"nls-gateway.aliyuncs.com/stream/v1/tts"</span> -d <span class="str">'{"voice":"yousuf","language":"ar-SA",...}'</span>
+
+<span class="cmt"># 2. ffmpeg 合并无声画面 + 配音</span>
+ffmpeg -i hh-mute.mp4 -i ar.mp3 -c:v copy -c:a aac -shortest out.mp4
+
+<span class="cmt"># 3. （可选）wav2lip 对口型</span>
+python inference.py --face hh-mute.mp4 --audio ar.mp3 --outfile lipsync.mp4</pre>
+      </div>
+    </div>
+  </article>
+</section>
+
+<!-- ─── 方案 3：循环动画 ─── -->
+<section class="section" id="sol-3">
+  <article class="solution">
+    <div class="solution-head">
+      <div class="solution-num">03</div>
+      <div class="solution-titles">
+        <div class="solution-tag">PROBLEM &amp; SOLUTION</div>
+        <h2 class="solution-title">循环动画（首尾闭合）</h2>
+        <p class="solution-tldr">三档分级方案：<strong>简单几何 → Lottie，写实材质 → HH+裁剪，过渡形态 → HH+prompt</strong></p>
+      </div>
+      <span class="solution-sev high">严重</span>
+    </div>
+    <div class="solution-body">
+      <div class="sb sb-problem">
+        <div class="sb-label problem">● 实测短板</div>
+        <p class="sb-desc">头像框、勋章光效等需要<strong>首尾无缝循环</strong>的场景，HH 不支持，prompt 约束失败。</p>
+        <div class="sb-quote">无法做循环动画（prompt 上约束失败，不支持首尾），导致这一块无法派上用场。<br>— 动效侧测试结论</div>
+      </div>
+      <div class="sb sb-solution">
+        <div class="sb-label solution">● 我们的应对：三档分级方案</div>
+        <p class="sb-desc">按需求复杂度选不同方案，按场景分工。</p>
+        <ol class="sb-steps">
+          <li><strong>A 档（HH + prompt 强约束）</strong>：prompt 明确"起始姿态 = 结束姿态" + "全程匀速循环"——简单缓动可用，复杂动作大概率失败</li>
+          <li><strong>B 档（HH + 后期裁剪）</strong>：跑 15s，用 FFmpeg 自动找<strong>动作相似度最高的两帧</strong>作循环起止点，导出片段后做 crossfade 拼接</li>
+          <li><strong>C 档（Lottie / GSAP 矢量动画）</strong>：勋章光效、头像框旋转等<strong>几何确定</strong>的元素——直接用前端矢量动画，文件 KB 级、无限循环、可换色</li>
+          <li><strong>决策矩阵</strong>：简单几何 → C；写实材质 → B；过渡形态 → A</li>
+          <li><strong>优先级提示（针对 PDF 痛点）：</strong>头像框 / 勋章 / loading 等 UI 类循环 = <strong>C 档优先（Lottie/GSAP）</strong>。PDF 报告里明确"无法派上用场"的场景就是这类几何确定的元素，不要让设计师误选 A 档浪费 token</li>
+        </ol>
+        <div class="sb-tool">
+          <div class="sb-tool-label">推荐工具组合</div>
+          <strong>B 档实施：</strong>FFmpeg <code>scenedetect</code> + <code>ssim</code> 相似度算法自动找循环点。<br>
+          <strong>C 档实施：</strong>Lottie / Rive / GSAP 三选一，设计师 AE 出 Lottie，前端直接 npm 引入。
+        </div>
+
+        <div class="sb-code-label">B 档：FFmpeg 找循环点 + 加 crossfade</div>
+<pre class="sb-code"><span class="cmt"># SSIM 相似度找循环起止</span>
+scenedetect -i loop-source.mp4 detect-content list-scenes -o report.csv
+
+<span class="cmt"># 截目标段 + crossfade 形成无缝循环</span>
+ffmpeg -i source.mp4 -ss 2.0 -t 3.5 -filter_complex <span class="str">"fade=in:0:15,fade=out:75:15"</span> loop.mp4</pre>
+
+        <div class="sb-code-label">C 档：Lottie 矢量勋章（文件 ~10KB）</div>
+<pre class="sb-code"><span class="key">import</span> lottie <span class="key">from</span> <span class="str">'lottie-web'</span>;
+lottie.<span class="var">loadAnimation</span>({ container: <span class="str">'#medal'</span>, loop: <span class="key">true</span>, path: <span class="str">'/medals/gold-glow.json'</span> });</pre>
+      </div>
+    </div>
+  </article>
+</section>
+
+<!-- ─── 方案 4：场景化选型 ─── -->
+<section class="section" id="sol-4">
+  <article class="solution">
+    <div class="solution-head">
+      <div class="solution-num">04</div>
+      <div class="solution-titles">
+        <div class="solution-tag">PROBLEM &amp; SOLUTION</div>
+        <h2 class="solution-title">场景化模型选型（不强求 HH 全包）</h2>
+        <p class="solution-tldr">HH 定位真人/电影质感，<strong>动画类路由到 seedance、循环 UI 路由到 Lottie</strong>，按场景选最强工具</p>
+      </div>
+      <span class="solution-sev mid">中度</span>
+    </div>
+    <div class="solution-body">
+      <div class="sb sb-problem">
+        <div class="sb-label problem">● 实测短板</div>
+        <p class="sb-desc">动画类（礼物、机甲变形）场景下，HH 的节奏感与动作逻辑<strong>不如 seedance2.0</strong>，运镜对比也偏弱。</p>
+        <div class="sb-quote">礼物：画面质量没大问题，但动画节奏、逻辑、运镜对比，seedance2.0 依旧比 HappyHorse 更优秀。<br>— 动效侧测试结论</div>
+      </div>
+      <div class="sb sb-solution">
+        <div class="sb-label solution">● 我们的应对：按场景选最强工具</div>
+        <p class="sb-desc">把 HH 定位为<strong>真人 + 电影质感专项</strong>模型，动画类场景路由到更合适的工具。</p>
+        <table class="choice-table">
+          <thead>
+            <tr><th>场景</th><th>首选</th><th>备选 / 路径</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>真人对话 / 情感戏</td><td class="rec">HappyHorse ★★★</td><td class="alt">SD2.0 / Kling</td></tr>
+            <tr><td>哭戏 / 微表情</td><td class="rec">HappyHorse ★★★</td><td class="alt">— （HH 差异化优势）</td></tr>
+            <tr><td>电影感 / 光影 / 夜景</td><td class="rec">HappyHorse ★★★</td><td class="alt">Runway / Veo</td></tr>
+            <tr><td>电商产品展示</td><td class="rec">HappyHorse ★★★</td><td class="alt">Kling</td></tr>
+            <tr><td>动画 / 卡通 / 礼物</td><td class="rec">seedance 2.0 ★★★</td><td class="alt">HappyHorse</td></tr>
+            <tr><td>游戏机甲 / 变形特效</td><td class="rec">seedance 2.0 ★★★</td><td class="alt">HappyHorse</td></tr>
+            <tr><td>循环 UI 动效</td><td class="rec">Lottie / GSAP ★★★</td><td class="alt">— （矢量更稳）</td></tr>
+            <tr><td>多语种 lip-sync</td><td class="rec">HH + TTS + wav2lip</td><td class="alt">— （组合工作流）</td></tr>
+            <tr><td>小语种地区投放</td><td class="rec">HH + 本地化 anchor + TTS + wav2lip ★★★</td><td class="alt">— （sol-2 联动，解决 PDF 的人种形象 + 配音双痛点）</td></tr>
+          </tbody>
+        </table>
+        <div class="sb-tool">
+          <div class="sb-tool-label">项目里已实现</div>
+          <strong>万花筒预设系统</strong>已按场景分类 33 个预设：电商类首选 HH，风格化类（动漫/卡通）现接 HH 但可路由到 seedance，功能型按需选型。下一步把"推荐模型"字段加入预设元数据（<a href="/">Card2 万花筒</a>）。
+        </div>
+
+        <div class="sb-code-label">基于预设标签的自动模型路由</div>
+<pre class="sb-code"><span class="key">function</span> <span class="var">selectModel</span>(preset) {
+  <span class="key">if</span> (tags.includes(<span class="str">'loop-ui'</span>))                            <span class="key">return</span> <span class="str">'lottie'</span>;        <span class="cmt">// 矢量更稳</span>
+  <span class="key">if</span> (tags.includes(<span class="str">'stylized'</span>) || tags.includes(<span class="str">'mecha'</span>)) <span class="key">return</span> <span class="str">'seedance-2.0'</span>; <span class="cmt">// 节奏更强</span>
+  <span class="key">return</span> <span class="str">'happyhorse-1.0'</span>;                                              <span class="cmt">// 真人/电影/电商默认 HH</span>
+}</pre>
+      </div>
+    </div>
+  </article>
+</section>
+
+<!-- ─── 能力扩展章节分隔（sol 5-8） ─── -->
+<section class="section" id="ext">
+  <div class="ext-divider">
+    <span class="ext-divider-tag">CAPABILITIES EXTENSION</span>
+    <h2 class="ext-divider-title">能力扩展 · <span class="grad">基于 YouTube 教程提炼的 4 个高 ROI 方案</span></h2>
+    <p class="ext-divider-lead">上面 4 个 sol 解决了 PDF 测试报告暴露的痛点。下面 4 个 sol 进一步发挥 HH 1.0 的强项能力，每个都基于 Dan Kieft（272K 播放）/ Joshua Mayo（83K 播放）等高质量教程提炼，已落地为 A/B 对比 demo 验证可行性。</p>
+  </div>
+</section>
+
+<!-- ─── 方案 5：多主角对手戏 ─── -->
+<section class="section" id="sol-5">
+  <article class="solution">
+    <div class="solution-head">
+      <div class="solution-num">05</div>
+      <div class="solution-titles">
+        <div class="solution-tag" style="color: var(--accent-info);">CAPABILITY EXTENSION</div>
+        <h2 class="solution-title">多主角对手戏（character1 + character2）</h2>
+        <p class="solution-tldr">HH 1.0 R2V 原生支持 <strong>1-9 张参考图</strong>，prompt 用 character1 / character2 引用——一次出双人对话/互动场景，<strong>买量侧两人种草、母女、人+宠物高频可复用</strong></p>
+      </div>
+      <span class="solution-sev ext">扩展</span>
+    </div>
+    <div class="solution-body">
+      <div class="sb sb-solution">
+        <div class="sb-label solution">● HH 1.0 原生能力</div>
+        <p class="sb-desc">R2V 模式的 <code>reference_urls</code> 上限 9 张，prompt 中用 <code>character1</code> 指第 1 张、<code>character2</code> 指第 2 张……按上传顺序对应。我们项目里已支持 1-9 张参考图字段。<strong>典型买量场景：</strong>两人对话种草、母女对手戏、人+宠物互动、双 IP 联动。</p>
+
+        <div class="sb-code-label">调用骨架</div>
+<pre class="sb-code">media: {
+  reference_urls: [<span class="str">"oss://.../character1.jpg"</span>, <span class="str">"oss://.../character2.jpg"</span>],
+  prompt: <span class="str">"character1 与 character2 隔桌而坐，character1 举起咖啡杯，character2 用手势讲述故事..."</span>
+}</pre>
+
+        <!-- A/B 对比 demo -->
+        <div class="ab-demo">
+          <div class="ab-demo-cell a-side">
+            <div class="ab-demo-label">A · 对照（单 character R2V 15s）</div>
+            <video src="/hh-cases/sol-multichar-A.mp4" controls muted preload="metadata" playsinline></video>
+            <div class="ab-demo-caption">仅传入主角 character1（韩系女生 anchor），prompt 描述独角戏场景。<strong>结果预期：</strong>主体一致性好，但单人画面叙事单薄</div>
+          </div>
+          <div class="ab-demo-cell b-side">
+            <div class="ab-demo-label">B · 升级（双 character R2V 15s）</div>
+            <video src="/hh-cases/sol-multichar-B.mp4" controls muted preload="metadata" playsinline></video>
+            <div class="ab-demo-caption">传入 character1 + character2（亚洲男生），prompt 用语法 character1 / character2 描述两人互动。<strong>结果预期：</strong>双人对手戏成功生成，主体身份与互动节奏并存</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </article>
+</section>
+
+<!-- ─── 方案 6：五要素 prompt 结构化 ─── -->
+<section class="section" id="sol-6">
+  <article class="solution">
+    <div class="solution-head">
+      <div class="solution-num">06</div>
+      <div class="solution-titles">
+        <div class="solution-tag" style="color: var(--accent-info);">CAPABILITY EXTENSION</div>
+        <h2 class="solution-title">五要素 prompt 结构化（Cinematic Prompt Recipe）</h2>
+        <p class="solution-tldr">基于 Dan Kieft 拆解：<strong>Camera + Subject + Action + Environment + Lighting</strong> 五要素结构化书写 → 同一题材出片质量大幅跃升，避免"自由 prompt 抽奖"</p>
+      </div>
+      <span class="solution-sev ext">扩展</span>
+    </div>
+    <div class="solution-body">
+      <div class="sb sb-solution">
+        <div class="sb-label solution">● 应对：把 prompt 拆成 5 个槽位</div>
+        <p class="sb-desc">Dan Kieft 在「Why My AI Videos look Ultra Realistic」教程中提出：电影感来自 lighting / composition / depth / color / emotion 五个层次。落到 prompt 工程上就是<strong>固定 5 个槽位</strong>，每次写 prompt 套用模板，杜绝"想到啥写啥"。</p>
+
+        <div class="sb-code-label">5 要素 Prompt 模板</div>
+<pre class="sb-code"><span class="key">[Camera]</span>     中景 / 35mm 镜头 / 缓慢推进 dolly-in
+<span class="key">[Subject]</span>    25 岁韩系女生，长发披肩，米白针织衫，3/4 侧脸
+<span class="key">[Action]</span>     双手捧起白瓷咖啡杯，杯沿轻触嘴唇，蒸汽袅袅升起
+<span class="key">[Environment]</span> 北欧原木风咖啡馆，窗边木桌，桌上一本翻开的书
+<span class="key">[Lighting]</span>   柔和午后金色窗光 45 度斜入，胶片质感</pre>
+
+        <!-- A/B 对比 -->
+        <div class="ab-demo">
+          <div class="ab-demo-cell a-side">
+            <div class="ab-demo-label">A · 对照（自由 prompt）</div>
+            <video src="/hh-cases/sol-recipe-A.mp4" controls muted preload="metadata" playsinline></video>
+            <div class="ab-demo-caption">Prompt = <em>"一个女生在窗边喝咖啡"</em>。<strong>结果预期：</strong>HH 自由发挥，光线、构图、运镜随机；可能出片可用但电影感弱</div>
+          </div>
+          <div class="ab-demo-cell b-side">
+            <div class="ab-demo-label">B · 升级（5 要素结构化）</div>
+            <video src="/hh-cases/sol-recipe-B.mp4" controls muted preload="metadata" playsinline></video>
+            <div class="ab-demo-caption">Prompt = <em>[Camera]+[Subject]+[Action]+[Environment]+[Lighting] 5 段填空</em>。<strong>结果预期：</strong>光线方向精确、构图稳定、镜头运动可控，明显的"电影感"提升</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </article>
+</section>
+
+<!-- ─── 方案 7：运镜预设库 ─── -->
+<section class="section" id="sol-7">
+  <article class="solution">
+    <div class="solution-head">
+      <div class="solution-num">07</div>
+      <div class="solution-titles">
+        <div class="solution-tag" style="color: var(--accent-info);">CAPABILITY EXTENSION</div>
+        <h2 class="solution-title">运镜预设库（Camera Movement Preset）</h2>
+        <p class="solution-tldr">Joshua Mayo 教程整理出 <strong>25-30 种工业运镜</strong>（Dolly Zoom / Orbit / Crash Zoom...）→ 写成预设模板挂进万花筒，用户下拉就用，避免每次手写 camera 描述</p>
+      </div>
+      <span class="solution-sev ext">扩展</span>
+    </div>
+    <div class="solution-body">
+      <div class="sb sb-solution">
+        <div class="sb-label solution">● 应对：把工业运镜写成预设</div>
+        <p class="sb-desc">Higgsfield 网站把运镜做成一键 preset，我们用 prompt 模板实现等价能力。每个 preset = 一段 <code>[Camera Movement: ...]</code> 头部 + 主体场景描述，挂进万花筒分类，用户选完直接用。</p>
+
+        <div class="ab-demo">
+          <div class="ab-demo-cell a-side">
+            <div class="ab-demo-label">A · 对照（无 camera 指令）</div>
+            <video src="/hh-cases/sol-camera-A.mp4" controls muted preload="metadata" playsinline></video>
+            <div class="ab-demo-caption">仅描述主体与场景，不写 camera。<strong>结果预期：</strong>运镜随机、节奏平淡</div>
+          </div>
+          <div class="ab-demo-cell b-side">
+            <div class="ab-demo-label">B · 升级（3 种代表性预设）</div>
+            <div class="camera-trio" style="padding: 12px;">
+              <div class="ab-demo-cell">
+                <div class="ab-demo-label" style="font-size: 10px;">B1 · Dolly Zoom 眩晕</div>
+                <video src="/hh-cases/sol-camera-B1-dolly-zoom.mp4" controls muted preload="metadata" playsinline></video>
+              </div>
+              <div class="ab-demo-cell">
+                <div class="ab-demo-label" style="font-size: 10px;">B2 · Orbit 环绕</div>
+                <video src="/hh-cases/sol-camera-B2-orbit.mp4" controls muted preload="metadata" playsinline></video>
+              </div>
+              <div class="ab-demo-cell">
+                <div class="ab-demo-label" style="font-size: 10px;">B3 · Crash Zoom 推近</div>
+                <video src="/hh-cases/sol-camera-B3-crash-zoom.mp4" controls muted preload="metadata" playsinline></video>
+              </div>
+            </div>
+            <div class="ab-demo-caption" style="margin-top: 8px;"><strong>3 种工业运镜各 5s：</strong>Dolly Zoom（Hitchcock 眩晕）/ Orbit（180 度环绕）/ Crash Zoom（暴力推近）。下一步把 25+ 种 preset 整理进万花筒</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </article>
+</section>
+
+<!-- ─── 方案 8：服装多版本批量产出 ─── -->
+<section class="section" id="sol-8">
+  <article class="solution">
+    <div class="solution-head">
+      <div class="solution-num">08</div>
+      <div class="solution-titles">
+        <div class="solution-tag" style="color: var(--accent-info);">CAPABILITY EXTENSION</div>
+        <h2 class="solution-title">服装多版本批量产出（Wardrobe Iteration）</h2>
+        <p class="solution-tldr">同一主角 anchor + prompt 切换穿搭风格 → 一个 IP 产出 N 套素材，<strong>买量侧"同一代言人 × N 个穿搭场景"批量化产能</strong></p>
+      </div>
+      <span class="solution-sev ext">扩展</span>
+    </div>
+    <div class="solution-body">
+      <div class="sb sb-solution">
+        <div class="sb-label solution">● 应对：固定 anchor，prompt 切风格</div>
+        <p class="sb-desc">R2V 锚定主角面孔，prompt 用 <code>&lt;服装风格&gt;</code> 槽位切换。同一 IP 可以一次产出休闲/正装/运动/居家等 N 套素材，<strong>避免每次重新生成主角面孔</strong>。</p>
+
+        <div class="sb-code-label">调用骨架</div>
+<pre class="sb-code">reference_urls: [anchor_oss],
+prompt: <span class="str">"character1 换装成<strong>&lt;休闲风格&gt;</strong>：浅蓝色丹宁牛仔外套 + 内搭白色 T 恤...保持人物面孔与气质一致。"</span>
+<span class="cmt">// 同一 anchor，切换 prompt 中的 &lt;风格&gt; → 一键产出 N 套</span></pre>
+
+        <div class="wardrobe-quad">
+          <div class="ab-demo-cell a-side">
+            <div class="ab-demo-label" style="font-size: 10.5px;">A · 原服装</div>
+            <video src="/hh-cases/sol-wardrobe-A.mp4" controls muted preload="metadata" playsinline></video>
+          </div>
+          <div class="ab-demo-cell b-side">
+            <div class="ab-demo-label" style="font-size: 10.5px;">B1 · 休闲牛仔</div>
+            <video src="/hh-cases/sol-wardrobe-B1-casual.mp4" controls muted preload="metadata" playsinline></video>
+          </div>
+          <div class="ab-demo-cell b-side">
+            <div class="ab-demo-label" style="font-size: 10.5px;">B2 · 知性正装</div>
+            <video src="/hh-cases/sol-wardrobe-B2-formal.mp4" controls muted preload="metadata" playsinline></video>
+          </div>
+          <div class="ab-demo-cell b-side">
+            <div class="ab-demo-label" style="font-size: 10.5px;">B3 · 街头运动</div>
+            <video src="/hh-cases/sol-wardrobe-B3-sporty.mp4" controls muted preload="metadata" playsinline></video>
+          </div>
+        </div>
+        <p style="margin-top: 14px; font-size: 12.5px; color: var(--text-dim); line-height: 1.6;"><strong>关键观察：</strong>4 个版本主角面孔保持一致（R2V 锚定的力量），但服装、配饰、氛围按 prompt 切换。<strong>对买量侧的意义：</strong>同一主角一次拍摄成本可衍生 N 套素材，A/B 测试速度大幅提升。</p>
+      </div>
+    </div>
+  </article>
+</section>
+
+<!-- ─── 实施路径 ─── -->
+<section class="section" id="roadmap">
+  <div class="section-head" style="margin-bottom: 24px;">
+    <div class="section-tag" style="color: var(--accent-ok); font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; font-weight: 600; margin-bottom: 14px;">ROADMAP</div>
+    <h2 style="font-size: clamp(28px, 4vw, 42px); font-weight: 700; line-height: 1.2; letter-spacing: -0.02em; margin-bottom: 14px;">实施路径</h2>
+    <p style="font-size: 16px; color: var(--text-dim); max-width: 640px;">每个方案的真实状态、工作量与上线节点。绿色 = 已上线、橙色 = 进行中、蓝色 = 规划中。</p>
+  </div>
+
+  <div class="roadmap">
+    <div class="roadmap-card live">
+      <span class="roadmap-status live">已上线</span>
+      <h3 class="roadmap-title">1. 超长视频链式生成 · V2</h3>
+      <p class="roadmap-meta">Studio 工坊「链式」V2 已上线：任务定义全局注入 + 锚点参考图全段共享 + 段 2+ R2V 模式 + 3 帧候选尾帧选择器，4 层一致性锚定解决"角色漂移"与"空镜尾帧"两大盲点。</p>
+      <div class="roadmap-eta"><span class="roadmap-eta-label">ETA</span><span style="color: var(--accent-ok)">立即可用</span></div>
+    </div>
+
+    <div class="roadmap-card wip">
+      <span class="roadmap-status wip">进行中</span>
+      <h3 class="roadmap-title">2. 音画分离 + 多语言配音</h3>
+      <p class="roadmap-meta">Prompt 端「内心独白模式」已就位，确保 HH 不出声；阿里云 NLS / ElevenLabs TTS 接入与 wav2lip 对口型流水线开发中。</p>
+      <div class="roadmap-eta"><span class="roadmap-eta-label">ETA</span><span style="color: var(--accent-amber)">~1 周（下周可演示）</span></div>
+    </div>
+
+    <div class="roadmap-card plan">
+      <span class="roadmap-status plan">规划中</span>
+      <h3 class="roadmap-title">3. 循环动画三档分级</h3>
+      <p class="roadmap-meta">A/B/C 三档技术方案已评审；FFmpeg 循环点检测脚本、Lottie 工程模板待启动。设计师侧 AE→Lottie 出图规范同步沉淀。</p>
+      <div class="roadmap-eta"><span class="roadmap-eta-label">ETA</span><span style="color: var(--accent-info)">~2 周（月底前）</span></div>
+    </div>
+
+    <div class="roadmap-card wip">
+      <span class="roadmap-status wip">进行中</span>
+      <h3 class="roadmap-title">4. 场景化模型自动路由</h3>
+      <p class="roadmap-meta">33 个万花筒预设按场景分类已完成；selectModel() 路由决策代码 + 后端多供应商接入待落地。</p>
+      <div class="roadmap-eta"><span class="roadmap-eta-label">ETA</span><span style="color: var(--accent-amber)">~1 周（下周可灰度）</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- footer -->
+<footer class="footer">
+  <div class="footer-links">
+    <a href="/hh-guide.html">← HH 提示词指南（V3）</a>
+    <a href="/">主应用 Studio</a>
+    <a href="#sol-1">回到顶部</a>
+  </div>
+</footer>
+
+</body>
+</html>

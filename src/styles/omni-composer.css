@@ -1,0 +1,1857 @@
+/* =========================================================
+   OMNI-COMPOSER · 工坊底部浮动「全能对话框」
+   外壳：底部锚定 + 毛玻璃 + 四角 grid。
+   内层控件（chip / 浮层 / 参数 / 媒体 / 折扣 / 生成键）
+   复用 studio-composer.css 的 .cmp-* / .pf-* / .mmt-* / .ratio-*。
+   100% 语义 token，禁硬编码色。
+   ========================================================= */
+
+.oc-dock {
+  position: fixed;
+  /* 居中在「预览区」内，而非整个视口 —— --oc-pad-left 由 OmniComposer 实测
+     .preview-pane 左缘写入。这样无论左侧任务栏显示 / 隐藏 / 被拖宽，对话框
+     左缘都不会滑进任务栏底下造成重叠（窄窗也安全）。 */
+  left: var(--oc-pad-left, 280px);
+  right: 0;
+  bottom: 20px;
+  margin-inline: auto;
+  width: min(900px, calc(100vw - var(--oc-pad-left, 280px) - 32px));
+  z-index: 60;
+  /* 材质三件套：近实心亮表面 + 象牙白 alpha 描边 + 顶部内高光。
+     调研结论：厚磨砂玻璃已疲态，改走"更亮的实体表面 + 内高光"路线，
+     像暗房灯下的一块发光金属台，而非一片玻璃。轻雾仅作兜底（生效则更润）。 */
+  background: color-mix(in oklab, var(--ink-3) 70%, var(--ink-2));
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border: 1px solid var(--edge-strong);
+  border-radius: var(--radius-xl);
+  /* 常驻暖金辉光 + 顶部内高光 + 接地阴影 */
+  box-shadow: var(--hi),
+    var(--shadow-3),
+    0 6px 30px -16px color-mix(in oklab, var(--accent) 24%, transparent);
+  padding: 8px 12px 10px;
+  /* 浮层向上弹要溢出框，不能裁 */
+  overflow: visible;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  grid-template-rows: auto auto auto;
+  grid-template-areas:
+    "tl  tl  tr"
+    "mid mid mid"
+    "bl  bl  br";
+  gap: 6px 10px;
+  transition: box-shadow var(--ease-smooth, 0.18s ease),
+    border-color var(--ease-quick, 0.15s ease);
+}
+.oc-dock:focus-within {
+  border-color: color-mix(in oklab, var(--accent) 45%, var(--line));
+  box-shadow: var(--shadow-3),
+    0 0 56px -8px color-mix(in oklab, var(--accent) 40%, transparent),
+    0 0 0 2px color-mix(in oklab, var(--accent) 45%, transparent);
+}
+.oc-dock.oc-dragging {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-3),
+    0 0 0 2px color-mix(in oklab, var(--accent) 70%, transparent);
+}
+
+/* ── 四角区域 ── */
+.oc-tl {
+  grid-area: tl;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.oc-tr {
+  grid-area: tr;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  justify-self: end;
+}
+.oc-mid {
+  grid-area: mid;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.oc-bl {
+  grid-area: bl;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+.oc-br {
+  grid-area: br;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  justify-self: end;
+}
+
+/* ── 中央 prompt 输入 —— 沿用 .cmp-box-input 的衬线斜体气质 ── */
+.oc-input {
+  width: 100%;
+  min-height: 42px;
+  max-height: 132px;
+  background: transparent;
+  border: none;
+  outline: none;
+  resize: none;
+  overflow-y: auto;
+  color: var(--paper);
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 15px;
+  line-height: 1.5;
+  padding: 4px 4px 2px;
+}
+.oc-input::placeholder {
+  color: var(--paper-mute);
+  opacity: 0.55;
+}
+
+/* ── VE 模式限制提示 ── */
+.oc-ve-hint {
+  margin: 2px 0 0;
+  font-size: 9.5px;
+  line-height: 1.4;
+  color: var(--paper-mute);
+  opacity: 0.65;
+}
+
+/* ── 运镜建议 chip —— 点一下插进 prompt，hover 熔铜点亮、按下金属闪 ── */
+.oc-suggest {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.oc-suggest-chip {
+  padding: 3px 9px;
+  background: transparent;
+  border: 1px solid var(--edge);
+  border-radius: 999px;
+  color: var(--paper-mute);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: all var(--ease-quick, 0.15s ease);
+}
+.oc-suggest-chip:hover {
+  border-color: var(--edge-gold);
+  color: var(--accent);
+  background: color-mix(in oklab, var(--accent) 10%, transparent);
+}
+.oc-suggest-chip:active {
+  background: var(--metal-gold);
+  color: var(--cta-ink);
+  border-color: transparent;
+}
+.oc-dock.oc-collapsed .oc-suggest {
+  display: none;
+}
+
+/* ── 🎬 导演 AI 流式扩写 ── */
+.oc-dir-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--accent) 12%, transparent);
+  border: 1px solid var(--edge-gold);
+  color: var(--accent);
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  cursor: pointer;
+  transition: all var(--ease-quick, 0.15s ease);
+}
+.oc-dir-btn:hover:not(:disabled) {
+  background: color-mix(in oklab, var(--accent) 20%, transparent);
+}
+.oc-dir-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.oc-dir-hint {
+  font-size: 10.5px;
+  color: var(--paper-mute);
+}
+.oc-dir-spin {
+  width: 11px;
+  height: 11px;
+  border: 1.5px solid color-mix(in oklab, var(--accent) 30%, transparent);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: oc-dir-spin 0.7s linear infinite;
+}
+@keyframes oc-dir-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.oc-dir {
+  margin-top: 4px;
+  border: 1px solid var(--edge-gold);
+  border-radius: var(--radius-md, 10px);
+  background: color-mix(in oklab, var(--ink-2) 85%, transparent);
+  padding: 10px 12px;
+  animation: oc-dir-in 0.18s ease;
+}
+@keyframes oc-dir-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.oc-dir-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--accent);
+  margin-bottom: 7px;
+}
+.oc-dir-live {
+  font-style: normal;
+  color: var(--paper-mute);
+  animation: oc-dir-blink 1.1s ease-in-out infinite;
+}
+@keyframes oc-dir-blink {
+  50% {
+    opacity: 0.4;
+  }
+}
+.oc-dir-x {
+  background: none;
+  border: none;
+  color: var(--paper-mute);
+  cursor: pointer;
+  font-size: 12px;
+}
+.oc-dir-x:hover {
+  color: var(--paper);
+}
+.oc-dir-body {
+  font-family: var(--serif, serif);
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--paper);
+  max-height: 26vh;
+  overflow-y: auto;
+  white-space: pre-wrap;
+}
+.oc-dir-caret {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  margin-left: 1px;
+  vertical-align: text-bottom;
+  background: var(--accent);
+  animation: oc-dir-blink 0.8s steps(1) infinite;
+}
+.oc-dir-err {
+  font-size: 12px;
+  color: var(--red);
+  line-height: 1.5;
+}
+.oc-dir-acts {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+.oc-dir-apply {
+  flex: 0 0 auto;
+  padding: 5px 14px;
+  border-radius: 7px;
+  background: var(--gradient-cta, var(--metal-gold));
+  border: none;
+  color: var(--cta-ink, #1a1410);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.oc-dir-apply:hover {
+  filter: brightness(1.06);
+}
+.oc-dir-retry {
+  flex: 0 0 auto;
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: none;
+  border: 1px solid var(--edge);
+  color: var(--paper-mute);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  cursor: pointer;
+}
+.oc-dir-retry:hover {
+  border-color: var(--edge-gold);
+  color: var(--accent);
+}
+.oc-dock.oc-collapsed .oc-dir {
+  display: none;
+}
+
+/* ── 内联媒体上传 —— 横向小瓦片排列 ── */
+.oc-refs {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+/* 单图 MediaPicker 紧凑瓦片 —— 竖向：瓦片 + 下方可见标注（首帧/尾帧/音频…） */
+.mp-compact {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  position: relative;
+}
+/* 瓦片下方短标注：让每个上传框一眼看清是什么，不必悬停 */
+.mp-c-cap {
+  max-width: 60px;
+  font-size: 9px;
+  line-height: 1.2;
+  text-align: center;
+  color: var(--paper-mute);
+  letter-spacing: 0.02em;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+}
+.mp-c-opt {
+  display: block;
+  font-size: 8px;
+  color: color-mix(in oklab, var(--paper-mute) 65%, transparent);
+}
+.mp-c-add {
+  width: 58px;
+  height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--ink-3);
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-md);
+  color: var(--paper-mute);
+  cursor: pointer;
+  transition: all var(--ease-quick, 0.15s ease);
+}
+.mp-c-add:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: color-mix(in oklab, var(--accent) 8%, var(--ink-3));
+}
+.mp-c-plus {
+  font-size: 20px;
+  line-height: 1;
+}
+
+/* 紧凑态 ＋ 的「本地 / 资产库」二选一菜单 */
+.mp-c-addwrap {
+  position: relative;
+}
+.mp-c-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 70;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px;
+  min-width: 100px;
+  background: color-mix(in oklab, var(--ink-2) 96%, transparent);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  box-shadow: var(--shadow-3);
+}
+.mp-c-menu button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 6px 8px;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  color: var(--paper);
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  cursor: pointer;
+}
+.mp-c-menu button:hover {
+  background: color-mix(in oklab, var(--accent) 14%, transparent);
+  color: var(--accent);
+}
+
+/* —— AssetPicker：从资产库选成片当输入媒体 —— */
+.ap-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: color-mix(in oklab, var(--ink) 60%, transparent);
+  backdrop-filter: blur(4px);
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+.ap-panel {
+  width: min(760px, 92vw);
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  background: color-mix(in oklab, var(--ink-2) 97%, transparent);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg, 14px);
+  box-shadow: var(--shadow-3);
+  overflow: hidden;
+}
+.ap-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+}
+.ap-title {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--accent);
+  white-space: nowrap;
+}
+.ap-search {
+  flex: 1 1 auto;
+  min-width: 0;
+  background: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--paper);
+  font-size: 12.5px;
+  padding: 7px 10px;
+  font-family: var(--font-sans);
+}
+.ap-search:focus {
+  outline: none;
+  border-color: var(--edge-gold, var(--accent));
+}
+.ap-x {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  background: none;
+  border: none;
+  border-radius: 7px;
+  color: var(--paper-mute);
+  cursor: pointer;
+  font-size: 13px;
+}
+.ap-x:hover {
+  background: color-mix(in oklab, var(--paper) 8%, transparent);
+  color: var(--paper);
+}
+.ap-empty {
+  padding: 48px 16px;
+  text-align: center;
+  color: var(--paper-mute);
+  font-size: 12.5px;
+}
+.ap-grid {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+  gap: 10px;
+  padding: 14px;
+}
+.ap-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0;
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+.ap-cell:hover {
+  border-color: var(--edge-gold, var(--accent));
+  transform: translateY(-2px);
+}
+.ap-cell img,
+.ap-cell video {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  display: block;
+  background: var(--ink);
+}
+.ap-cell-cap {
+  font-size: 10.5px;
+  color: var(--paper-dim);
+  padding: 0 7px 7px;
+  text-align: left;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* —— DirectorPresetPicker：导演场景套路选择面板 —— */
+.dp-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: color-mix(in oklab, var(--ink) 62%, transparent);
+  backdrop-filter: blur(4px);
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+.dp-panel {
+  width: min(880px, 94vw);
+  max-height: min(88vh, 720px);
+  display: flex;
+  flex-direction: column;
+  background: color-mix(in oklab, var(--ink-2) 97%, transparent);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg, 14px);
+  box-shadow: var(--shadow-3);
+  overflow: hidden;
+}
+.dp-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+}
+.dp-title {
+  flex: 0 0 auto;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: var(--accent);
+  white-space: nowrap;
+}
+.dp-search {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 280px;
+  background: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--paper);
+  font-size: 11px;
+  padding: 5px 9px;
+  font-family: var(--font-sans);
+}
+.dp-search:focus {
+  outline: none;
+  border-color: var(--edge-gold, var(--accent));
+}
+.dp-search::placeholder {
+  color: var(--paper-mute);
+  opacity: 0.6;
+}
+.dp-x {
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  color: var(--paper-mute);
+  cursor: pointer;
+  font-size: 11px;
+}
+.dp-x:hover {
+  background: color-mix(in oklab, var(--paper) 8%, transparent);
+  color: var(--paper);
+}
+.dp-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  padding: 6px 14px;
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+}
+.dp-tag-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 3px;
+}
+.dp-tag-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--paper-mute);
+  opacity: 0.5;
+  margin-right: 1px;
+}
+.dp-tag-clear {
+  border-style: dashed;
+  color: var(--paper-mute);
+  opacity: 0.7;
+}
+.dp-tag-clear:hover {
+  opacity: 1;
+}
+.dp-tag {
+  flex: 0 0 auto;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: transparent;
+  border: 1px solid var(--edge, var(--line));
+  color: var(--paper-mute);
+  font-family: var(--font-sans);
+  font-size: 10px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all var(--ease-quick, 0.15s ease);
+}
+.dp-tag:hover {
+  border-color: var(--edge-gold);
+  color: var(--accent);
+}
+.dp-tag.on {
+  background: var(--metal-gold, var(--accent));
+  color: var(--cta-ink, var(--ink));
+  border-color: transparent;
+}
+.dp-grid {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  align-content: start;
+  gap: 12px;
+  padding: 14px 16px;
+}
+.dp-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start;
+  text-align: left;
+  background: color-mix(in oklab, var(--ink-1) 50%, transparent);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 14px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, transform 0.15s ease, background 0.15s ease;
+}
+.dp-card:hover:not(:disabled) {
+  border-color: var(--edge-gold);
+  transform: translateY(-2px);
+  background: color-mix(in oklab, var(--accent) 7%, var(--ink-1));
+}
+.dp-card:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.dp-card-auto {
+  border-style: dashed;
+}
+.dp-empty {
+  grid-column: 1 / -1;
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--paper-mute);
+  font-size: 12.5px;
+}
+.dp-emoji {
+  font-size: 18px;
+  line-height: 1;
+}
+.dp-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--paper);
+  font-family: var(--font-sans);
+}
+.dp-desc {
+  font-size: 12px;
+  color: var(--paper-dim);
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ── 自定义模版 ── */
+.dp-card-custom {
+  position: relative;
+  border-color: color-mix(in oklab, var(--accent) 30%, var(--line));
+}
+.dp-card-edit-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  background: color-mix(in oklab, var(--ink) 80%, transparent);
+  border-radius: 5px;
+  font-size: 11px;
+  color: var(--paper-mute);
+  opacity: 0;
+  transition: opacity 0.12s;
+  cursor: pointer;
+}
+.dp-card-custom:hover .dp-card-edit-btn { opacity: 1; }
+.dp-card-edit-btn:hover { color: var(--accent); }
+
+/* ── 模版编辑器 ── */
+.dp-editor {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 14px 16px;
+}
+.dp-editor-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.dp-editor-title {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+}
+.dp-editor-acts {
+  display: flex;
+  gap: 6px;
+}
+.dp-editor-save,
+.dp-editor-cancel,
+.dp-editor-del {
+  padding: 4px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: none;
+  font-size: 11px;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  color: var(--paper-mute);
+}
+.dp-editor-save {
+  background: var(--gradient-cta, var(--metal-gold));
+  border-color: transparent;
+  color: var(--cta-ink);
+  font-weight: 600;
+}
+.dp-editor-save:disabled { opacity: 0.4; cursor: default; }
+.dp-editor-save:hover:not(:disabled) { filter: brightness(1.06); }
+.dp-editor-cancel:hover { color: var(--paper); border-color: var(--edge); }
+.dp-editor-del { color: var(--red, #e55); border-color: var(--red, #e55); opacity: 0.7; }
+.dp-editor-del:hover { opacity: 1; }
+
+.dp-editor-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.dp-editor-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.dp-editor-label {
+  flex: 0 0 70px;
+  font-size: 10px;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--paper-mute);
+  padding-top: 6px;
+}
+.dp-editor-input {
+  flex: 1;
+  background: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 5px 8px;
+  color: var(--paper);
+  font-size: 12px;
+  font-family: var(--font-sans);
+}
+.dp-editor-input:focus { outline: none; border-color: var(--accent); }
+.dp-editor-emoji { flex: 0 0 48px; text-align: center; font-size: 18px; }
+.dp-editor-select {
+  flex: 1;
+  background: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 5px 8px;
+  color: var(--paper);
+  font-size: 12px;
+}
+.dp-editor-tags {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.mp-c-tile {
+  position: relative;
+  width: 58px;
+  height: 58px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--ink-3);
+}
+.mp-c-media {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.mp-c-ph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  color: var(--paper-mute);
+}
+.mp-c-x {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.mp-c-tile:hover .mp-c-x {
+  opacity: 1;
+}
+.mp-c-spin {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid var(--ink-2);
+  border-top-color: var(--accent);
+  animation: mmt-spin 0.7s linear infinite;
+}
+.mp-c-err {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  white-space: nowrap;
+  font-size: 9px;
+}
+
+/* 多图 MediaMultiPicker 在对话框里收紧：隐藏标题行、加号变小方块 */
+.oc-refs .mmt {
+  gap: 4px;
+}
+.oc-refs .mmt-head {
+  display: none;
+}
+.oc-refs .mmt-tray.empty .mmt-add {
+  width: 58px;
+  height: 58px;
+  flex-direction: column;
+  gap: 0;
+}
+.oc-refs .mmt-tray.empty .mmt-add-label {
+  display: none;
+}
+/* 对话框里隐藏「粘贴 URL」整行 —— 上传走 + 瓦片即可，去掉杂乱 */
+.oc-refs .mmt-url {
+  display: none;
+}
+/* 多图瓦片在对话框里也收到 58px，与单图瓦片一致 */
+.oc-refs .mmt-tile {
+  width: 58px;
+  height: 58px;
+}
+
+/* ── 左上：模型下拉的浮层改为向上弹（默认 .cmp-model-pop 向下，会盖住输入框）── */
+.oc-tl .cmp-model-pop {
+  top: auto;
+  bottom: calc(100% + 6px);
+}
+.oc-model > summary {
+  max-width: 220px;
+}
+
+/* ── 收起/展开开关 ── */
+.oc-collapse-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--paper-mute);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  transition: all var(--ease-quick, 0.15s ease);
+}
+.oc-collapse-btn:hover {
+  background: var(--ink-3);
+  color: var(--accent);
+}
+
+/* ── 收起态：细条单行，只留 模型 + 一行 prompt + 收起键 + 生成；
+      预览区视频靠 --oc-height 变小自动撑大 ── */
+.oc-dock.oc-collapsed {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 12px;
+}
+.oc-dock.oc-collapsed .oc-tr,
+.oc-dock.oc-collapsed .oc-bl,
+.oc-dock.oc-collapsed .oc-refs,
+.oc-dock.oc-collapsed .oc-director,
+.oc-dock.oc-collapsed .oc-seg,
+.oc-dock.oc-collapsed .oc-br .cmp-box-cost,
+.oc-dock.oc-collapsed .oc-br .cmp-discount,
+.oc-dock.oc-collapsed .oc-br .cmp-ico-btn,
+.oc-dock.oc-collapsed .oc-br .oc-dir-btn {
+  display: none;
+}
+.oc-dock.oc-collapsed .oc-tl {
+  flex: 0 0 auto;
+}
+.oc-dock.oc-collapsed .oc-mid {
+  flex: 1 1 auto;
+  min-width: 0;
+  gap: 0;
+}
+.oc-dock.oc-collapsed .oc-br {
+  flex: 0 0 auto;
+}
+.oc-dock.oc-collapsed .oc-input {
+  min-height: 0;
+  height: auto;
+  max-height: 1.5em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0 2px;
+  line-height: 1.5;
+}
+
+/* ── 生视频 / 生图片 紧凑分段 ── */
+.oc-seg {
+  display: inline-flex;
+  gap: 2px;
+  background: var(--ink-2);
+  padding: 2px;
+  border-radius: 7px;
+  flex-shrink: 0;
+}
+.oc-seg-btn {
+  padding: 5px 11px;
+  background: transparent;
+  border: none;
+  border-radius: 5px;
+  color: var(--paper-mute);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--ease-smooth, 0.18s ease);
+  white-space: nowrap;
+}
+.oc-seg-btn:hover {
+  color: var(--paper);
+}
+.oc-seg-btn.on {
+  background: var(--metal-gold);
+  color: var(--cta-ink);
+  box-shadow: var(--hi),
+    0 1px 6px color-mix(in oklab, var(--accent) 35%, transparent);
+}
+
+/* ── 右下浮层靠右对齐，避免溢出框右缘 ── */
+.oc-br .cmp-chip-pop,
+.oc-br .cmp-discount-pop {
+  left: auto;
+  right: 0;
+}
+
+/* ── 导演台入口 —— 占满底部一行，紧凑单条 ── */
+.oc-director {
+  grid-column: 1 / -1;
+  margin-top: 2px;
+  padding: 6px 10px;
+  gap: 8px;
+}
+.oc-director .cmp-director-icon {
+  font-size: 13px;
+}
+.oc-director .cmp-director-text strong {
+  font-size: 11px;
+}
+.oc-director .cmp-director-text small {
+  font-size: 8.5px;
+}
+
+/* ── 拖拽遮罩 ── */
+.oc-drop-mask {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-xl);
+  background: color-mix(in oklab, var(--ink) 55%, transparent);
+  border: 2px dashed var(--accent);
+  color: var(--paper);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  pointer-events: none;
+  z-index: 40;
+}
+
+/* ════════════ Pipeline 短剧向导 ════════════ */
+
+/* ── 进度条：六步指示器 + 连接线 ── */
+.oc-pl-bar {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 2px 0;
+}
+.oc-pl-dot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 3px 8px;
+  border-radius: var(--radius-md);
+  font-size: 11px;
+  font-family: var(--font-mono);
+  cursor: pointer;
+  background: transparent;
+  color: var(--text-3);
+  border: 1px solid color-mix(in oklab, var(--line) 60%, transparent);
+  transition: all var(--ease-smooth);
+  white-space: nowrap;
+  position: relative;
+  z-index: 1;
+}
+.oc-pl-dot:hover {
+  border-color: var(--accent);
+  color: var(--paper-dim);
+  background: color-mix(in oklab, var(--accent) 8%, transparent);
+}
+.oc-pl-dot.on {
+  background: var(--gradient-cta);
+  border-color: transparent;
+  color: var(--cta-ink);
+  font-weight: 700;
+  box-shadow: var(--shadow-cta);
+}
+.oc-pl-dot.done {
+  background: color-mix(in oklab, var(--signal) 18%, transparent);
+  border-color: color-mix(in oklab, var(--signal) 50%, transparent);
+  color: var(--signal);
+  font-weight: 600;
+}
+/* 连接线 */
+.oc-pl-wire {
+  width: 12px;
+  height: 2px;
+  background: var(--line);
+  flex-shrink: 0;
+  transition: background var(--ease-quick);
+}
+.oc-pl-wire.done {
+  background: var(--signal);
+}
+.oc-pl-dot-icon {
+  font-size: 12px;
+}
+.oc-pl-dot-label {
+  font-size: 10px;
+}
+
+/* ── 步骤面板容器 ── */
+.oc-step-panel {
+  min-height: 80px;
+  padding: 6px 0 2px;
+}
+.oc-step {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.oc-step-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 0.02em;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.oc-step-title::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, color-mix(in oklab, var(--accent) 30%, transparent), transparent);
+}
+.oc-step-hint {
+  font-size: 11px;
+  color: var(--text-3);
+  line-height: 1.4;
+}
+
+/* ── Step 1 剧本输入框 ── */
+.oc-step-input {
+  width: 100%;
+  resize: vertical;
+  min-height: 60px;
+  max-height: 140px;
+  padding: 8px 10px;
+  font-size: 13px;
+  font-family: var(--font-sans);
+  line-height: 1.5;
+  color: var(--text-1);
+  background: color-mix(in oklab, var(--ink) 40%, transparent);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  outline: none;
+  transition: border-color var(--ease-quick), box-shadow var(--ease-quick);
+}
+.oc-step-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 12%, transparent);
+}
+.oc-step-input::placeholder {
+  color: var(--text-3);
+}
+
+/* ── Step 配置行 ── */
+.oc-step-config {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.oc-step-config label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-2);
+}
+.oc-step-config-k {
+  font-weight: 600;
+  color: var(--accent);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.oc-step-config select,
+.oc-step-config input[type="text"] {
+  padding: 3px 6px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-1);
+  background: color-mix(in oklab, var(--ink) 40%, transparent);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  outline: none;
+  transition: border-color var(--ease-quick);
+}
+.oc-step-config select:focus,
+.oc-step-config input[type="text"]:focus {
+  border-color: var(--accent);
+}
+
+/* ── 进度条（全局） ── */
+.oc-step-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 11px;
+  color: var(--text-2);
+  font-family: var(--font-mono);
+}
+.oc-step-progress-bar {
+  height: 4px;
+  min-width: 80px;
+  flex: 1;
+  background: color-mix(in oklab, var(--line) 40%, transparent);
+  border-radius: 2px;
+  position: relative;
+  overflow: hidden;
+}
+.oc-step-progress-bar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  background: var(--gradient-cta);
+  border-radius: 2px;
+  transform-origin: left;
+  transform: scaleX(1);
+}
+
+/* ── 左下 pipeline 信息 ── */
+.oc-pl-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.oc-pl-info-step {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+}
+.oc-pl-info-hint {
+  font-size: 10px;
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in oklab, var(--accent) 10%, transparent);
+  border: 1px solid color-mix(in oklab, var(--accent) 20%, transparent);
+}
+
+/* ── 右下 pipeline 执行按钮 ── */
+.oc-pl-action {
+  min-width: 120px;
+  background: var(--gradient-cta) !important;
+  color: var(--cta-ink) !important;
+  box-shadow: var(--shadow-cta);
+  font-weight: 700 !important;
+  transition: box-shadow var(--ease-quick), transform var(--ease-spring);
+}
+.oc-pl-action:hover:not(:disabled) {
+  box-shadow: var(--shadow-cta-hover);
+  transform: translateY(-1px);
+}
+.oc-pl-action:active:not(:disabled) {
+  transform: translateY(0);
+}
+.oc-pl-action.oc-pl-busy {
+  opacity: 0.8;
+  pointer-events: none;
+}
+.oc-pl-spin {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: oc-spin 0.6s linear infinite;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+@keyframes oc-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Step 2 分镜列表 ── */
+.oc-step-shots {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.oc-step-assets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding-bottom: 4px;
+}
+.oc-step-asset-tag {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+.oc-step-asset-char {
+  background: color-mix(in oklab, var(--accent) 14%, transparent);
+  color: var(--accent);
+  border: 1px solid color-mix(in oklab, var(--accent) 35%, transparent);
+}
+.oc-step-asset-scene {
+  background: color-mix(in oklab, var(--signal) 14%, transparent);
+  color: var(--signal);
+  border: 1px solid color-mix(in oklab, var(--signal) 35%, transparent);
+}
+.oc-step-shot-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-height: 160px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+.oc-step-shot-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  background: color-mix(in oklab, var(--ink-2) 60%, transparent);
+  border: 1px solid color-mix(in oklab, var(--line) 30%, transparent);
+  transition: border-color var(--ease-quick), background var(--ease-quick);
+}
+.oc-step-shot-row:hover {
+  border-color: color-mix(in oklab, var(--accent) 40%, transparent);
+  background: color-mix(in oklab, var(--ink-2) 80%, transparent);
+}
+.oc-step-shot-idx {
+  font-weight: 700;
+  color: var(--accent);
+  min-width: 16px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+.oc-step-shot-title {
+  font-weight: 500;
+  color: var(--text-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+}
+.oc-step-shot-tag {
+  font-size: 9px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: color-mix(in oklab, var(--accent) 12%, transparent);
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+.oc-step-shot-dialogue {
+  font-size: 10px;
+  color: var(--text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+/* ── Editable shot row ── */
+.oc-step-shot-row--edit {
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 5px 8px;
+}
+.oc-shot-input,
+.oc-shot-select {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  background: color-mix(in oklab, var(--ink) 50%, transparent);
+  border: 1px solid color-mix(in oklab, var(--line) 50%, transparent);
+  border-radius: var(--radius-sm);
+  color: var(--text-1);
+  padding: 2px 5px;
+  outline: none;
+  transition: border-color var(--ease-quick), box-shadow var(--ease-quick);
+}
+.oc-shot-input:focus,
+.oc-shot-select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--accent) 12%, transparent);
+}
+.oc-shot-title {
+  flex: 1;
+  min-width: 80px;
+  max-width: 160px;
+  font-weight: 500;
+}
+.oc-shot-select {
+  width: 88px;
+  cursor: pointer;
+}
+.oc-shot-dur {
+  width: 36px;
+  text-align: center;
+}
+.oc-shot-dur-unit {
+  font-size: 9px;
+  color: var(--accent);
+  font-weight: 600;
+  margin-left: -2px;
+}
+.oc-shot-dialogue {
+  flex: 2;
+  min-width: 100px;
+}
+
+/* ── Steps 3-5 节点明细列表 ── */
+.oc-node-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 120px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+.oc-node-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+  font-family: var(--font-mono);
+  background: color-mix(in oklab, var(--ink-2) 50%, transparent);
+  border: 1px solid color-mix(in oklab, var(--line) 20%, transparent);
+  transition: border-color var(--ease-quick);
+}
+.oc-node-row:hover {
+  border-color: color-mix(in oklab, var(--accent) 30%, transparent);
+}
+.oc-node-status {
+  width: 16px;
+  text-align: center;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+.oc-node-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-1);
+  font-weight: 500;
+}
+.oc-node-tag {
+  font-size: 9px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-weight: 600;
+}
+.oc-node-tag--pending {
+  background: color-mix(in oklab, var(--line) 30%, transparent);
+  color: var(--text-3);
+}
+.oc-node-tag--running {
+  background: color-mix(in oklab, var(--accent) 16%, transparent);
+  color: var(--accent);
+  animation: oc-pulse 1.5s ease-in-out infinite;
+}
+.oc-node-tag--done {
+  background: color-mix(in oklab, var(--signal) 16%, transparent);
+  color: var(--signal);
+}
+.oc-node-tag--error {
+  background: color-mix(in oklab, var(--red) 16%, transparent);
+  color: var(--red);
+}
+@keyframes oc-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+.oc-node-dialogue {
+  font-size: 9px;
+  color: var(--text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 140px;
+}
+
+/* Drama tab 特殊样式 */
+.oc-seg-drama.on {
+  background: var(--gradient-cta);
+  border-color: transparent;
+  color: var(--cta-ink);
+  font-weight: 700;
+  box-shadow: var(--shadow-cta);
+}
+
+/* ════════════ Pipeline 模型选择器 + 参数 chips ════════════ */
+
+/* ── 模型选择器行 ── */
+.oc-step-model {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+.oc-step-model-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+.oc-step-model-select {
+  flex: 1;
+  min-width: 0;
+  max-width: 320px;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-1);
+  background: color-mix(in oklab, var(--ink) 50%, transparent);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  outline: none;
+  cursor: pointer;
+  transition: border-color var(--ease-quick);
+}
+.oc-step-model-select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--accent) 12%, transparent);
+}
+
+/* ── 参数 chips（I2V 分辨率/时长等） ── */
+.oc-step-params {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 2px 0;
+}
+.oc-step-param {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-family: var(--font-mono);
+}
+.oc-step-param-k {
+  font-weight: 600;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.oc-step-param-v {
+  padding: 2px 6px;
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--text-1);
+  background: color-mix(in oklab, var(--ink) 40%, transparent);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  outline: none;
+  cursor: pointer;
+  transition: border-color var(--ease-quick);
+}
+.oc-step-param-v:focus {
+  border-color: var(--accent);
+}
+
+/* ── 语音角色按钮组（legacy, 兼容） ── */
+.oc-step-voice-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 2px 0;
+}
+.oc-step-voice-btn {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: transparent;
+  border: 1px solid var(--edge);
+  color: var(--paper-mute);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all var(--ease-quick, 0.15s ease);
+}
+.oc-step-voice-btn:hover {
+  border-color: var(--edge-gold);
+  color: var(--accent);
+  background: color-mix(in oklab, var(--accent) 8%, transparent);
+}
+.oc-step-voice-btn.on {
+  background: var(--gradient-cta, var(--metal-gold));
+  border-color: transparent;
+  color: var(--cta-ink, #1a1410);
+  font-weight: 600;
+  box-shadow: 0 1px 4px color-mix(in oklab, var(--accent) 25%, transparent);
+}
+
+/* ── 语音面板 V2：性别 tab + 卡片网格 ── */
+.oc-voice-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 2px 0;
+}
+.oc-voice-tab {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: transparent;
+  border: 1px solid var(--edge);
+  color: var(--paper-mute);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  cursor: pointer;
+  transition: all var(--ease-quick, 0.15s ease);
+}
+.oc-voice-tab:hover {
+  border-color: var(--edge-gold);
+  color: var(--accent);
+}
+.oc-voice-tab.on {
+  background: var(--metal-gold);
+  border-color: transparent;
+  color: var(--cta-ink);
+  font-weight: 600;
+}
+.oc-voice-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 4px;
+  max-height: 120px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  padding: 2px 0;
+}
+.oc-voice-card {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 5px 8px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in oklab, var(--ink-2) 50%, transparent);
+  border: 1px solid color-mix(in oklab, var(--line) 30%, transparent);
+  cursor: pointer;
+  transition: all var(--ease-quick, 0.15s ease);
+  position: relative;
+}
+.oc-voice-card:hover {
+  border-color: color-mix(in oklab, var(--accent) 40%, transparent);
+  background: color-mix(in oklab, var(--accent) 6%, var(--ink-2));
+}
+.oc-voice-card.on {
+  background: color-mix(in oklab, var(--accent) 14%, var(--ink-2));
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--accent) 30%, transparent);
+}
+.oc-voice-card-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-1);
+}
+.oc-voice-card.on .oc-voice-card-name {
+  color: var(--accent);
+}
+.oc-voice-card-desc {
+  font-size: 9px;
+  color: var(--text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.oc-voice-card-badge {
+  position: absolute;
+  top: 3px;
+  right: 4px;
+  font-size: 8px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: color-mix(in oklab, var(--signal) 18%, transparent);
+  color: var(--signal);
+  font-weight: 700;
+  font-family: var(--font-mono);
+}
+
+/* ── Lip-sync hint ── */
+.oc-lipsync-hint {
+  font-size: 10px;
+  color: var(--text-3);
+  opacity: 0.7;
+  padding: 2px 0;
+  font-style: italic;
+}
+
+/* ── 合成配置区域 ── */
+.oc-compose-config {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  background: color-mix(in oklab, var(--ink) 30%, transparent);
+  border: 1px solid color-mix(in oklab, var(--line) 40%, transparent);
+}
+.oc-compose-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.oc-compose-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  min-width: 36px;
+  flex-shrink: 0;
+}
+.oc-compose-select {
+  padding: 3px 6px;
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--text-1);
+  background: color-mix(in oklab, var(--ink) 50%, transparent);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  outline: none;
+  cursor: pointer;
+  transition: border-color var(--ease-quick);
+}
+.oc-compose-select:focus {
+  border-color: var(--accent);
+}
+.oc-compose-select--sm {
+  width: 60px;
+}
+.oc-compose-check {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  color: var(--text-2);
+  cursor: pointer;
+}
+.oc-compose-check input[type="checkbox"] {
+  accent-color: var(--accent);
+  width: 13px;
+  height: 13px;
+}
+
+/* ── BGM 上传 ── */
+.oc-bgm-upload {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in oklab, var(--accent) 10%, transparent);
+  border: 1px dashed color-mix(in oklab, var(--accent) 40%, transparent);
+  color: var(--accent);
+  font-size: 10px;
+  font-family: var(--font-mono);
+  cursor: pointer;
+  transition: all var(--ease-quick);
+}
+.oc-bgm-upload:hover {
+  background: color-mix(in oklab, var(--accent) 18%, transparent);
+  border-style: solid;
+}
+.oc-bgm-name {
+  font-size: 10px;
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.oc-bgm-x {
+  background: none;
+  border: none;
+  color: var(--paper-mute);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0 2px;
+}
+.oc-bgm-x:hover {
+  color: var(--red, #e55);
+}
+.oc-bgm-slider {
+  width: 80px;
+  height: 4px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+/* ── 节点行内模型名 ── */
+.oc-node-model {
+  font-size: 9px;
+  color: var(--text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100px;
+  flex-shrink: 0;
+}
+
+/* ════════════ 窄屏：全宽 bottom-sheet 贴底 ════════════ */
+@media (max-width: 1100px) {
+  .oc-dock {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    transform: none;
+    width: 100%;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+    padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+    grid-template-areas:
+      "tl  tr"
+      "mid mid"
+      "bl  br";
+    grid-template-columns: 1fr auto;
+  }
+  .oc-input {
+    max-height: 22vh;
+  }
+}

@@ -1,0 +1,1074 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HappyHorse 实战短板应对 · 汇报版</title>
+<style>
+:root {
+  --bg: #08080d;
+  --bg-elev: #0e0e16;
+  --bg-card: rgba(255, 255, 255, 0.025);
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.15);
+  --text: #f5f5f7;
+  --text-dim: rgba(245, 245, 247, 0.62);
+  --text-faint: rgba(245, 245, 247, 0.38);
+  --accent-warn: #fc8181;
+  --accent-amber: #f6ad55;
+  --accent-ok: #68d391;
+  --accent-info: #63b3ed;
+  --accent-link: #b794f6;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-snap-type: y mandatory; scroll-behavior: smooth; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+  overflow-x: hidden;
+}
+.slide {
+  min-height: 100vh;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  padding: 60px 80px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  position: relative;
+  border-bottom: 1px solid var(--border);
+}
+@media (max-width: 900px) {
+  .slide { padding: 40px 28px; }
+}
+
+/* 翻页指示器 */
+.deck-nav {
+  position: fixed;
+  right: 24px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 100;
+}
+.deck-nav a {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-faint);
+  display: block;
+  transition: all 0.2s;
+}
+.deck-nav a:hover { background: var(--text); transform: scale(1.4); }
+
+/* 返回 Frame/0 主页(左上角浮动) —— 主页同款 logo */
+.deck-home {
+  position: fixed;
+  top: 24px;
+  left: 24px;
+  z-index: 100;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px 8px 12px;
+  background: rgba(8, 8, 13, 0.72);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  color: var(--text);
+  text-decoration: none;
+  transition: background 0.18s, border-color 0.18s, transform 0.18s;
+}
+.deck-home:hover {
+  background: rgba(183, 148, 246, 0.14);
+  border-color: var(--accent-link);
+  transform: translateX(-2px);
+}
+.deck-home .home-back {
+  font-size: 16px;
+  color: var(--text-dim);
+  font-weight: 400;
+  line-height: 1;
+}
+.deck-home .logo {
+  font-family: "Times New Roman", Georgia, serif;
+  font-style: italic;
+  font-size: 20px;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  line-height: 1;
+  text-transform: none;
+}
+.deck-home .logo .slash {
+  color: oklch(0.72 0.17 40); /* 主页同款 terracotta accent */
+  font-style: normal;
+}
+.deck-home .logo b {
+  font-style: normal;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif;
+  font-weight: 500;
+  font-size: 12px;
+  vertical-align: 5px;
+  margin-left: 2px;
+  letter-spacing: 0.18em;
+}
+
+/* 顶部小标识 */
+.slide-header {
+  position: absolute;
+  top: 32px;
+  left: 80px;
+  right: 80px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11.5px;
+  letter-spacing: 0.18em;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  font-weight: 600;
+}
+@media (max-width: 900px) {
+  .slide-header { left: 28px; right: 28px; }
+}
+.slide-num { color: var(--accent-amber); }
+.slide-link-out {
+  color: var(--text-dim);
+  text-decoration: none;
+  font-size: 11px;
+  border: 1px solid var(--border);
+  padding: 4px 10px;
+  border-radius: 12px;
+}
+.slide-link-out:hover { color: var(--text); border-color: var(--border-strong); }
+
+/* ─── slide 1: Hero ─── */
+.hero h1 {
+  font-size: clamp(48px, 8vw, 100px);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  margin-bottom: 30px;
+}
+.hero h1 .red { color: var(--accent-warn); }
+.hero h1 .green { color: var(--accent-ok); }
+.hero h1 .blue { color: var(--accent-info); }
+.hero-lead {
+  font-size: 22px;
+  color: var(--text-dim);
+  max-width: 800px;
+  line-height: 1.5;
+  margin-bottom: 36px;
+}
+.hero-stats {
+  display: flex;
+  gap: 60px;
+  margin-top: 24px;
+  flex-wrap: wrap;
+}
+.hero-stat {
+  border-left: 3px solid var(--accent-amber);
+  padding-left: 16px;
+}
+.hero-stat .num {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--accent-amber);
+  display: block;
+  line-height: 1.2;
+}
+.hero-stat .label {
+  font-size: 13px;
+  color: var(--text-dim);
+  letter-spacing: 0.05em;
+}
+.hero-stat:nth-child(2) { border-color: var(--accent-ok); }
+.hero-stat:nth-child(2) .num { color: var(--accent-ok); }
+.hero-stat:nth-child(3) { border-color: var(--accent-info); }
+.hero-stat:nth-child(3) .num { color: var(--accent-info); }
+.hero-stat:nth-child(4) { border-color: var(--accent-link); }
+.hero-stat:nth-child(4) .num { color: var(--accent-link); }
+
+/* ─── slide 通用 ─── */
+.slide-title {
+  font-size: clamp(28px, 4vw, 48px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  margin-bottom: 14px;
+}
+.slide-subtitle {
+  font-size: 18px;
+  color: var(--text-dim);
+  margin-bottom: 36px;
+  max-width: 900px;
+  line-height: 1.55;
+}
+
+/* 4 痛点矩阵 */
+.pain-matrix {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 18px;
+  margin-top: 20px;
+}
+@media (max-width: 1000px) { .pain-matrix { grid-template-columns: repeat(2, 1fr); } }
+.pain-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 28px 24px;
+  position: relative;
+  transition: transform 0.2s, border-color 0.2s;
+}
+.pain-card:hover { transform: translateY(-4px); border-color: var(--border-strong); }
+.pain-card-sev {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  padding: 3px 10px;
+  border-radius: 10px;
+  display: inline-block;
+  margin-bottom: 12px;
+}
+.pain-card-sev.fatal { color: var(--accent-warn); background: rgba(252,129,129,0.12); }
+.pain-card-sev.high { color: var(--accent-amber); background: rgba(246,173,85,0.12); }
+.pain-card-sev.mid { color: var(--accent-info); background: rgba(99,179,237,0.12); }
+.pain-card-title {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  line-height: 1.3;
+}
+.pain-card-desc {
+  font-size: 13.5px;
+  color: var(--text-dim);
+  line-height: 1.55;
+  margin-bottom: 14px;
+}
+.pain-card-arrow {
+  font-size: 11.5px;
+  color: var(--accent-ok);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+
+/* 中央视频 */
+.center-video {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 50px;
+  align-items: center;
+  margin-top: 20px;
+}
+@media (max-width: 980px) {
+  .center-video { grid-template-columns: 1fr; gap: 30px; }
+}
+.center-video-frame {
+  background: #000;
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+  border: 1px solid var(--border-strong);
+}
+.center-video-frame video {
+  width: 100%;
+  aspect-ratio: 9 / 16;
+  max-height: 62vh;
+  object-fit: contain;
+  display: block;
+  background: #000;
+}
+.center-video-info {
+  padding: 0 10px;
+}
+.center-video-info .badge {
+  display: inline-block;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  color: var(--accent-ok);
+  background: rgba(104,211,145,0.12);
+  padding: 4px 12px;
+  border-radius: 12px;
+  margin-bottom: 14px;
+}
+.center-video-info h3 {
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  margin-bottom: 16px;
+}
+.center-video-info p {
+  font-size: 16px;
+  color: var(--text-dim);
+  line-height: 1.6;
+  margin-bottom: 18px;
+}
+.center-video-info p strong { color: var(--text); }
+.metric-row {
+  display: flex;
+  gap: 28px;
+  margin-top: 22px;
+  flex-wrap: wrap;
+}
+.metric {
+  border-left: 2px solid var(--accent-amber);
+  padding-left: 12px;
+}
+.metric .num { font-size: 22px; font-weight: 700; color: var(--accent-amber); display: block; line-height: 1.2; }
+.metric .label { font-size: 11.5px; color: var(--text-faint); }
+.metric.green { border-color: var(--accent-ok); }
+.metric.green .num { color: var(--accent-ok); }
+.metric.blue { border-color: var(--accent-info); }
+.metric.blue .num { color: var(--accent-info); }
+
+/* 调用链堆栈（slide 3 精确流程） */
+.call-stack {
+  margin-top: 20px;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+.call-row {
+  display: grid;
+  grid-template-columns: 64px 1fr;
+  align-items: center;
+  padding: 8px 14px;
+  font-size: 12px;
+  border-bottom: 1px solid var(--border);
+  line-height: 1.55;
+}
+.call-row:last-child { border-bottom: none; }
+.call-step {
+  font-weight: 700;
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  color: var(--accent-amber);
+}
+.call-row.r2v .call-step { color: var(--accent-ok); }
+.call-row.concat .call-step { color: var(--accent-info); }
+.call-row .call-body { color: var(--text-dim); }
+.call-row .call-body .model {
+  color: var(--accent-link);
+  font-weight: 600;
+}
+.call-row .call-body .arrow {
+  color: var(--text-faint);
+  margin: 0 6px;
+}
+.call-row .call-body .out { color: var(--text); }
+
+/* AB 对比 */
+.ab-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-top: 24px;
+}
+@media (max-width: 900px) { .ab-row { grid-template-columns: 1fr; } }
+.ab-cell {
+  background: var(--bg-card);
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+.ab-cell.a-side { border-top: 3px solid var(--accent-warn); }
+.ab-cell.b-side { border-top: 3px solid var(--accent-ok); }
+.ab-cell .tag {
+  padding: 12px 18px;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  background: rgba(0,0,0,0.3);
+}
+.ab-cell.a-side .tag { color: var(--accent-warn); }
+.ab-cell.b-side .tag { color: var(--accent-ok); }
+.ab-cell video {
+  width: 100%;
+  aspect-ratio: 9 / 16;
+  max-height: 50vh;
+  object-fit: contain;
+  background: #000;
+  display: block;
+}
+.video-grid .ab-cell video {
+  max-height: 32vh;
+}
+.ab-cell .caption {
+  padding: 14px 18px;
+  font-size: 13px;
+  color: var(--text-dim);
+  line-height: 1.55;
+}
+.ab-cell .caption strong { color: var(--text); }
+
+/* 视频网格（sol 6/7/8） */
+.video-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-top: 20px;
+}
+@media (max-width: 1200px) { .video-grid { grid-template-columns: repeat(2, 1fr); } }
+.video-grid .ab-cell { font-size: 13px; }
+.video-grid .ab-cell .tag {
+  font-size: 11px;
+  padding: 8px 12px;
+  letter-spacing: 0.04em;
+}
+.video-grid .ab-cell .caption {
+  padding: 10px 14px;
+  font-size: 11.5px;
+}
+
+/* 4 列短板小结 */
+.short-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  margin-top: 30px;
+}
+@media (max-width: 980px) { .short-summary { grid-template-columns: 1fr; } }
+.short-card {
+  background: var(--bg-card);
+  border-radius: 16px;
+  padding: 28px 24px;
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--accent-ok);
+}
+.short-card .num {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent-amber);
+  letter-spacing: 0.1em;
+  margin-bottom: 6px;
+}
+.short-card h3 {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 12px;
+  line-height: 1.25;
+}
+.short-card p {
+  font-size: 13.5px;
+  color: var(--text-dim);
+  line-height: 1.6;
+  margin-bottom: 10px;
+}
+.short-card strong { color: var(--text); }
+.short-card .keyfact {
+  font-size: 11.5px;
+  color: var(--accent-ok);
+  border-top: 1px dashed var(--border-strong);
+  padding-top: 10px;
+  margin-top: 14px;
+  font-weight: 600;
+}
+
+/* 章节分隔 */
+.divider-slide {
+  text-align: center;
+  justify-content: center;
+}
+.divider-tag {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.3em;
+  color: var(--accent-link);
+  margin-bottom: 24px;
+}
+.divider-title {
+  font-size: clamp(40px, 6vw, 72px);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  margin-bottom: 26px;
+}
+.divider-title .grad {
+  background: linear-gradient(135deg, #63b3ed 0%, #b794f6 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.divider-lead {
+  font-size: 20px;
+  color: var(--text-dim);
+  max-width: 800px;
+  margin: 0 auto;
+  line-height: 1.55;
+}
+
+/* 探索方向卡 */
+.exploration-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 22px;
+  margin-top: 30px;
+}
+@media (max-width: 900px) { .exploration-grid { grid-template-columns: 1fr; } }
+.exp-card {
+  background: rgba(99,179,237,0.04);
+  border: 1px dashed rgba(99,179,237,0.3);
+  border-radius: 16px;
+  padding: 26px 24px;
+}
+.exp-card .tag {
+  display: inline-block;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  color: var(--accent-info);
+  background: rgba(99,179,237,0.12);
+  padding: 3px 10px;
+  border-radius: 12px;
+  margin-bottom: 12px;
+}
+.exp-card h3 {
+  font-size: 19px;
+  font-weight: 700;
+  margin-bottom: 10px;
+  line-height: 1.3;
+}
+.exp-card p {
+  font-size: 13.5px;
+  color: var(--text-dim);
+  line-height: 1.65;
+}
+.exp-card .source {
+  font-size: 11.5px;
+  color: var(--text-faint);
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.exp-card .source a { color: var(--accent-info); text-decoration: none; }
+
+/* 实施路径条 */
+.roadmap-strip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-top: 30px;
+}
+@media (max-width: 900px) { .roadmap-strip { grid-template-columns: repeat(2, 1fr); } }
+.rs-item {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 22px 20px;
+}
+.rs-item.live { border-top: 3px solid var(--accent-ok); }
+.rs-item.wip { border-top: 3px solid var(--accent-amber); }
+.rs-item.plan { border-top: 3px solid var(--accent-info); }
+.rs-item .status {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  margin-bottom: 8px;
+}
+.rs-item.live .status { color: var(--accent-ok); }
+.rs-item.wip .status { color: var(--accent-amber); }
+.rs-item.plan .status { color: var(--accent-info); }
+.rs-item h3 {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 10px;
+  line-height: 1.3;
+}
+.rs-item p {
+  font-size: 12.5px;
+  color: var(--text-dim);
+  line-height: 1.55;
+}
+.rs-item .eta {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border-strong);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+.rs-item.live .eta { color: var(--accent-ok); }
+.rs-item.wip .eta { color: var(--accent-amber); }
+.rs-item.plan .eta { color: var(--accent-info); }
+
+/* 收尾 */
+.closing {
+  text-align: center;
+  justify-content: center;
+}
+.closing h2 {
+  font-size: clamp(36px, 5vw, 60px);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  margin-bottom: 24px;
+}
+.closing h2 .grad {
+  background: linear-gradient(135deg, #f6ad55 0%, #68d391 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.closing-actions {
+  display: flex;
+  gap: 18px;
+  justify-content: center;
+  margin-top: 36px;
+  flex-wrap: wrap;
+}
+.closing-btn {
+  padding: 14px 28px;
+  border-radius: 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-strong);
+  color: var(--text);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+.closing-btn:hover { background: var(--bg-card-hover); border-color: var(--accent-amber); }
+.closing-btn.primary { background: var(--accent-amber); color: #000; border-color: var(--accent-amber); }
+.closing-btn.primary:hover { background: #ffc578; }
+
+/* 表格 */
+.choice-table {
+  width: 100%;
+  margin-top: 20px;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: rgba(0,0,0,0.2);
+  border-radius: 14px;
+  overflow: hidden;
+}
+.choice-table th, .choice-table td {
+  padding: 12px 18px;
+  text-align: left;
+  font-size: 14px;
+  border-bottom: 1px solid var(--border);
+}
+.choice-table th {
+  background: rgba(0,0,0,0.4);
+  color: var(--text-dim);
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+.choice-table tr:last-child td { border-bottom: none; }
+.choice-table .rec { color: var(--accent-ok); font-weight: 600; }
+.choice-table .alt { color: var(--text-faint); font-size: 12.5px; }
+</style>
+</head>
+<body>
+
+<!-- 返回主页 —— 主页同款 logo -->
+<a class="deck-home" href="/" title="返回 Frame/0 主页">
+  <span class="home-back" aria-hidden="true">←</span>
+  <span class="logo">Frame<span class="slash">/</span>0 <b>DECK</b></span>
+</a>
+
+<!-- 翻页指示器 -->
+<nav class="deck-nav">
+  <a href="#s1" title="发现的 4 个问题"></a>
+  <a href="#s2" title="60 秒长视频实战"></a>
+  <a href="#s3" title="选型对比：两种长视频做法"></a>
+  <a href="#s4" title="另外 3 个问题的应对"></a>
+  <a href="#s5" title="阿拉伯语案例真实演示"></a>
+  <a href="#s6" title="能力增强篇 · 开篇"></a>
+  <a href="#s7" title="多主角对手戏"></a>
+  <a href="#s8" title="镜头运动 + 批量换装"></a>
+  <a href="#s9" title="未来 4 个探索方向"></a>
+  <a href="#s10" title="实施路径"></a>
+  <a href="#s11" title="总结"></a>
+</nav>
+
+<!-- ═══ Slide 1 · 4 痛点矩阵 ═══ -->
+<section class="slide" id="s1">
+  <div class="slide-header">
+    <span><span class="slide-num">01 / 11</span> · 业务侧实测发现的问题</span>
+    <span>《Happyhorse 测试报告》</span>
+  </div>
+  <h2 class="slide-title">测试报告里发现的 4 个问题</h2>
+  <p class="slide-subtitle">业务测试报告分为两部分——买量素材侧（真人画面、小语种配音）和动效侧（动画质感、循环播放）。</p>
+
+  <div class="pain-matrix">
+    <div class="pain-card">
+      <span class="pain-card-sev fatal">致命</span>
+      <h3 class="pain-card-title">视频时长太短</h3>
+      <p class="pain-card-desc">模型单次最多只能生成 15 秒视频，做不出长素材（30 秒、60 秒、90 秒等投流视频）。报告原话："最致命的是无法制作视频延长，只能最多 15s 视频，无法满足买量侧素材生成。"</p>
+      <span class="pain-card-arrow">→ 方案 1 · 多段拼接做出 60 秒</span>
+    </div>
+    <div class="pain-card">
+      <span class="pain-card-sev fatal">致命</span>
+      <h3 class="pain-card-title">小语种配音不像真人</h3>
+      <p class="pain-card-desc">阿拉伯语、印地语等小语种发音"AI 感很强、听起来不像真人"，没法直接投放到当地市场。报告原话："阿拉伯语：只是好了一些，但还是很奇怪；都听出来是 AI 音，不像真人。"</p>
+      <span class="pain-card-arrow">→ 方案 2 · 画面与配音分开做 + 本地形象库</span>
+    </div>
+    <div class="pain-card">
+      <span class="pain-card-sev high">严重</span>
+      <h3 class="pain-card-title">无法做循环播放</h3>
+      <p class="pain-card-desc">头像框光效、勋章发光、UI 装饰等需要"首尾完美衔接、无限循环"的场景做不了。报告原话："无法做循环动画（prompt 上约束失败，不支持首尾），导致这一块无法派上用场。"</p>
+      <span class="pain-card-arrow">→ 方案 3 · 等模型支持首尾帧 / 前端矢量动画过渡</span>
+    </div>
+    <div class="pain-card">
+      <span class="pain-card-sev mid">中度</span>
+      <h3 class="pain-card-title">动画感比对手弱</h3>
+      <p class="pain-card-desc">在礼物动效、机甲变形等强动作场景上，节奏感和运镜不如 seedance 2.0 模型。报告原话："礼物：画质没大问题，但动画节奏、逻辑、运镜对比，seedance 2.0 依旧比 HappyHorse 更优秀。"</p>
+      <span class="pain-card-arrow">→ 方案 4 · 不同场景挑不同模型</span>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ Slide 2 · 方案 1 · 60 秒长视频主案 ═══ -->
+<section class="slide" id="s2">
+  <div class="slide-header">
+    <span><span class="slide-num">02 / 11</span> · 方案 1 · 长视频拼接</span>
+    <span>针对致命问题 #1：视频时长太短</span>
+  </div>
+  <div class="center-video">
+    <div class="center-video-frame">
+      <video src="/hh-cases/superlong-60s.mp4" controls muted preload="metadata" playsinline></video>
+    </div>
+    <div class="center-video-info">
+      <span class="badge">实战案例 · 已上线</span>
+      <h3>60 秒韩系治愈一日 Vlog</h3>
+      <p><strong>整体思路：</strong>先用「文字生视频」做一个 5 秒短片"无中生有"出主角脸，从中抽一帧当主角参考图；然后用「参考图生视频」做 4 段 15 秒的视频，每段都喂这张主角参考图，让 4 段里出现的是同一个人；最后用 FFmpeg 把 4 段无损拼成 60 秒。</p>
+      <p style="margin-top: 6px;"><strong>关键设计：</strong>从第 2 段开始，除了喂主角参考图，还会额外喂上一段的最后一帧，让两段画面能自然衔接，不跳帧。</p>
+
+      <div class="call-stack">
+        <div class="call-row">
+          <span class="call-step">第 0 步</span>
+          <span class="call-body">文字生视频（<span class="model">happyhorse-1.0-t2v</span>）· 5 秒<span class="arrow">→</span>抽中间一帧 = <span class="out">主角参考图</span>（这段视频不进最终成品，只为拿到一张可以反复用的主角脸）</span>
+        </div>
+        <div class="call-row r2v">
+          <span class="call-step">第 1 段</span>
+          <span class="call-body">参考图生视频（<span class="model">happyhorse-1.0-r2v</span>）· 15 秒 · 参考图 = [<span class="out">主角</span>]<span class="arrow">→</span>卧室晨起</span>
+        </div>
+        <div class="call-row r2v">
+          <span class="call-step">第 2 段</span>
+          <span class="call-body">参考图生视频 · 15 秒 · 参考图 = [<span class="out">主角 + 第 1 段尾帧</span>]<span class="arrow">→</span>衣帽间挑衣</span>
+        </div>
+        <div class="call-row r2v">
+          <span class="call-step">第 3 段</span>
+          <span class="call-body">参考图生视频 · 15 秒 · 参考图 = [<span class="out">主角 + 第 2 段尾帧</span>]<span class="arrow">→</span>吧台冲咖啡</span>
+        </div>
+        <div class="call-row r2v">
+          <span class="call-step">第 4 段</span>
+          <span class="call-body">参考图生视频 · 15 秒 · 参考图 = [<span class="out">主角 + 第 3 段尾帧</span>]<span class="arrow">→</span>玄关出门</span>
+        </div>
+        <div class="call-row concat">
+          <span class="call-step">第 5 步</span>
+          <span class="call-body">FFmpeg 无损拼接<span class="arrow">→</span><span class="out">60 秒成品视频</span>（不重新编码，画质零损失）</span>
+        </div>
+      </div>
+
+      <div class="metric-row">
+        <div class="metric"><span class="num">60 秒</span><span class="label">总时长</span></div>
+        <div class="metric green"><span class="num">5 次</span><span class="label">模型调用</span></div>
+        <div class="metric green"><span class="num">31.6 MB</span><span class="label">最终大小</span></div>
+        <div class="metric blue"><span class="num">9:16</span><span class="label">720P 竖屏投流</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ Slide 3 · 对照实验 · 链式同条件对比 ═══ -->
+<section class="slide" id="s3">
+  <div class="slide-header">
+    <span><span class="slide-num">03 / 11</span> · 方案 1 · 对照实验</span>
+    <span>公共段 1 起点 + 段 2/3/4 同条件对比</span>
+  </div>
+  <h2 class="slide-title">「参考图生视频」vs「图生视频」对照实验</h2>
+  <p class="slide-subtitle">实验设计：<strong>段 1 用同一份视频（公共起点）</strong>，段 2、段 3、段 4 用<strong>完全相同的剧本提示词</strong>跑两遍——一遍用「参考图生视频」、一遍用「图生视频」。唯一变量是模型本身。然后用 face_recognition 量化每段中段帧与原参考图的欧氏距离（&lt; 0.6 = 同一人）。</p>
+
+  <div class="ab-row">
+    <div class="ab-cell a-side">
+      <div class="tag">A · 参考图生视频（R2V）· 段 2/3/4 拼接 45 秒</div>
+      <video src="/hh-cases/ab-cmp-r2v-45s.mp4" controls muted preload="metadata" playsinline></video>
+      <div class="caption">从公共段 1 尾帧出发，3 段用 refs=[原参考图 + 上段尾帧] 跑出。<strong>3 段人脸距离：</strong>0.567 / 0.464 / 0.490　<strong>平均 = 0.507</strong></div>
+    </div>
+    <div class="ab-cell b-side">
+      <div class="tag">B · 图生视频（I2V）· 段 2/3/4 拼接 45 秒</div>
+      <video src="/hh-cases/ab-cmp-i2v-45s.mp4" controls muted preload="metadata" playsinline></video>
+      <div class="caption">从公共段 1 尾帧出发，3 段用 img_url=上段尾帧 跑出。<strong>3 段人脸距离：</strong>0.440 / 0.502 / 0.504　<strong>平均 = 0.482</strong></div>
+    </div>
+  </div>
+
+  <p style="margin-top: 16px; font-size: 13px; color: var(--text-dim); line-height: 1.6; padding: 12px 18px; background: rgba(0,0,0,0.25); border-radius: 12px; border-left: 3px solid var(--accent-amber);"><strong style="color: var(--text);">实测结论：</strong>同条件链式 3 段后，<strong style="color:var(--accent-amber);">R2V 和 I2V 在人物一致性上基本打平</strong>（平均距离 0.507 vs 0.482，差 0.025 统计上不显著）——因为公共起点已经是模型生成的尾帧（不是原参考图），后续累积漂移幅度相近。<strong style="color: var(--text);">综合选 R2V 的依据：</strong>① 原生 character1 / character2 多主角语法支持（I2V 没有，参见方案 5）；② 调用链路更简洁，不需要每段提尾帧再上传；③ 更适合"主角不变、场景批量切换"的产能场景（参见方案 8 服装多版本）。</p>
+
+  <p style="margin-top: 10px; font-size: 12px; color: var(--text-faint); line-height: 1.55;"><strong>补充实验（独立采样测稳定性）：</strong>另外跑了一组"同主角参考图 + 同提示词 各独立调用 3 次"的实验，R2V 平均距离 0.392 vs I2V 0.448（差 0.056 显著）——单次调用层面 R2V 对参考图的保真度优于 I2V，但拼成链式后差异被起点偏移和累积漂移稀释，最终两种模式打平。</p>
+</section>
+
+<!-- ═══ Slide 4 · 方案 2/3/4 一页看完 ═══ -->
+<section class="slide" id="s4">
+  <div class="slide-header">
+    <span><span class="slide-num">04 / 11</span> · 方案 2 / 3 / 4</span>
+    <span>另外 3 个问题的应对方案</span>
+  </div>
+  <h2 class="slide-title">另外 3 个问题的应对方案</h2>
+  <p class="slide-subtitle">每个方案都直接对应测试报告里的一个问题，每个都已经在我们的工具产品（Studio 工坊 / 场景预设库）里落地。</p>
+
+  <div class="short-summary">
+    <div class="short-card">
+      <div class="num">方案 2 · 致命问题</div>
+      <h3>画面与配音分开做<br>+ 本地形象库</h3>
+      <p><strong>3 步基础流程（推荐用这条，简单稳定）：</strong></p>
+      <p>① 写提示词加"内心独白模式（角色嘴唇全程闭合）"，让模型不尝试发音、避免穿帮；<br>② 用阿里云语音合成 / ElevenLabs / Edge-TTS 生成目标语种的音频文件；<br>③ 用 FFmpeg 把无声画面和音频合并出最终成品（嘴闭合 + 旁白叠加效果）。</p>
+      <p><strong>本地形象库：</strong>预先沉淀中东、南亚男女各 5-10 张高质量参考图，覆盖"模型默认偏白人 / 东亚"的训练倾向。</p>
+      <div class="keyfact">理论上同一画面可配多语言（已实测阿拉伯语链路，其他语种未跑）</div>
+    </div>
+    <div class="short-card">
+      <div class="num">方案 3 · 严重问题</div>
+      <h3>循环播放<br>暂无好方案</h3>
+      <p><strong>根因：</strong>循环播放需要"首帧 = 尾帧"才能首尾衔接、无限播放。但 HappyHorse 1.0 当前 API 没有 last_frame_url 参数让我们指定结束帧——模型只能从首帧开始自由生成到结尾，首尾对不上必然跳帧。</p>
+      <p><strong>当前没有好的工程解：</strong>提示词强约束"起始姿态 = 结束姿态"成功率很低；用 FFmpeg 后期裁剪能凑出近似循环但接缝明显。</p>
+      <p><strong>路线建议：</strong>等 HappyHorse 后续版本支持首尾帧双锁后，问题能直接解决。短期 UI 装饰类（勋章、头像框、loading）建议先走前端矢量动画（Lottie / Rive）规避。</p>
+      <div class="keyfact">已有方案路径（未生产 demo），等模型支持首尾帧后从根本上解决</div>
+    </div>
+    <div class="short-card">
+      <div class="num">方案 4 · 能力差距</div>
+      <h3>不同场景<br>挑不同模型</h3>
+      <p><strong>路由规则（按场景自动选）：</strong></p>
+      <p>真人 / 哭戏 / 电影质感 / 电商产品 → <strong>HappyHorse</strong>；<br>动画 / 机甲 / 礼物 / 卡通 → <strong>seedance 2.0</strong>（节奏更强）；<br>循环 UI 动效 → <strong>Lottie / Rive</strong>（矢量更稳）；<br>小语种地区投放 → <strong>HappyHorse + 本地化形象库 + 语音合成 + 对口型</strong>（联动方案 2）。<br><strong>工程落地：</strong>每个预设打标签（real-person / stylized / loop-ui / cross-lang），后端按标签自动选模型。</p>
+      <div class="keyfact">已有 33 个场景预设按分类落地，下一步加"推荐模型"字段</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ Slide 5 · 阿拉伯语案例真实演示 ═══ -->
+<section class="slide" id="s5">
+  <div class="slide-header">
+    <span><span class="slide-num">05 / 11</span> · 方案 2 · 阿拉伯语真实演示</span>
+    <span>4 个对照视频</span>
+  </div>
+  <h2 class="slide-title">阿拉伯语案例真实演示</h2>
+  <p class="slide-subtitle">用 PDF 测试报告原句<span dir="rtl" lang="ar" style="font-family: 'Amiri', 'Noto Sans Arabic', sans-serif;">「لكن طفشان بالليل، وما لقيت أحد يكلمني، وش أسوي؟」</span>（夜里闷得慌，没人聊天，怎么办？）真实跑了 4 个对照视频。<strong style="color: var(--text);">左 2 个是问题复现，右 2 个是 方案 2 工作流产出</strong>——证明走"画面与配音分开做"的工程链路是真能落地的。</p>
+
+  <div class="video-grid">
+    <div class="ab-cell a-side">
+      <div class="tag">A · 让 HH 自己讲（复现 PDF 痛点）</div>
+      <video src="/hh-cases/arabic-hh-talking.mp4" controls muted preload="metadata" playsinline></video>
+    </div>
+    <div class="ab-cell a-side">
+      <div class="tag">B · HH 喂阿拉伯语 mp3 试 lip sync</div>
+      <video src="/hh-cases/arabic-hh-audio_url.mp4" controls muted preload="metadata" playsinline></video>
+    </div>
+    <div class="ab-cell b-side">
+      <div class="tag">C · 方案 2 第一步：嘴闭合静默</div>
+      <video src="/hh-cases/arabic-silent.mp4" controls muted preload="metadata" playsinline></video>
+    </div>
+    <div class="ab-cell b-side">
+      <div class="tag">D · 画面 + 配音组合（工程链路验证）</div>
+      <video src="/hh-cases/arabic-final.mp4" controls muted preload="metadata" playsinline></video>
+    </div>
+  </div>
+
+  <p style="margin-top: 20px; font-size: 13px; color: var(--text-dim); line-height: 1.6;"><strong style="color: var(--text);">本次 demo 的工程链路：</strong>① HH T2V 5 秒种子（中东男生） → 提中间一帧当主角参考图 → ② Edge-TTS 用沙特方言男声（ar-SA-HamedNeural）合成 PDF 原句 mp3 → ③ HH I2V 5 秒（参考图 + 内心独白嘴闭合提示词）→ ④ FFmpeg 把 ③ 和 ② 合并出最终视频。<strong style="color: var(--text);">总耗时约 8 分钟，可复现脚本：</strong><code style="font-size: 11.5px; padding: 2px 6px; background: rgba(255,255,255,0.06); border-radius: 4px;">scripts/generate-arabic-demo.mjs</code>。</p>
+
+  <p style="margin-top: 14px; font-size: 13px; color: var(--text-dim); line-height: 1.6; padding: 12px 18px; background: rgba(252,129,129,0.06); border-radius: 12px; border-left: 3px solid var(--accent-warn);"><strong style="color: var(--accent-warn);">实战可用做法（不是"嘴闭合 + 配音"）：</strong>① <strong>远景 / 背影 / 物体特写</strong>——画面里压根不出现正脸，配音怎么搭都不违和；② <strong>纯产品镜头 + 旁白</strong>——常见的电商投流形式，画面是产品 / 场景，声音是介绍；③ 等 HappyHorse 后续版本原生支持阿拉伯语 lip sync，或用其他成熟的口型同步方案。<strong style="color: var(--text);">本 demo 只为说明工程链路可行，实际生产应避开正脸开口画面。</strong></p>
+</section>
+
+<!-- ═══ Slide 6 · 章节分隔：能力增强篇 ═══ -->
+<section class="slide divider-slide" id="s6">
+  <div class="slide-header">
+    <span><span class="slide-num">06 / 11</span> · 第二部分</span>
+    <span>从「解决问题」到「把模型用得更好」</span>
+  </div>
+  <div class="divider-tag">能力增强篇</div>
+  <h2 class="divider-title">把模型用得更好<br><span class="grad">调研业界后提炼的 4 个实战方法</span></h2>
+  <p class="divider-lead">在补完测试报告里的 4 个问题之后，我们调研了 Higgsfield、Sora、Veo、Kling、Runway、Midjourney 等主流视频生成产品的能力边界与工程实践，对照 HappyHorse 1.0 自身的原生能力，提炼出 4 个能直接用到我们项目上的方法。每个方法都做了 A/B 对比演示视频。</p>
+</section>
+
+<!-- ═══ Slide 6 · 能力 1 · 多主角对手戏 ═══ -->
+<section class="slide" id="s7">
+  <div class="slide-header">
+    <span><span class="slide-num">07 / 11</span> · 能力 1 · 一段视频里同时出现两个人</span>
+    <span>模型原生支持多主角</span>
+  </div>
+  <h2 class="slide-title">从「单人独角戏」到「两人对手戏」</h2>
+  <p class="slide-subtitle">HappyHorse 模型本身就支持<strong>同时传 1 到 9 张参考图</strong>——上传两张人物图，然后在剧本里写"<strong>第一个人</strong>做什么、<strong>第二个人</strong>做什么"，就能让两个人同时出现在同一个画面里互动。<strong>这能直接覆盖买量侧高频场景：</strong>两人种草、母女对话、人+宠物互动、双 IP 联动等。</p>
+
+  <div class="ab-row">
+    <div class="ab-cell a-side">
+      <div class="tag">A · 对照：只传 1 张主角图（15 秒）</div>
+      <video src="/hh-cases/sol-multichar-A.mp4" controls muted preload="metadata" playsinline></video>
+      <div class="caption">只有主角（韩系女生）一个人在咖啡馆喝咖啡。<strong>结果：</strong>主角身份很稳，但画面里只有一个人，叙事比较单薄。</div>
+    </div>
+    <div class="ab-cell b-side">
+      <div class="tag">B · 升级：传 2 张主角图（15 秒）</div>
+      <video src="/hh-cases/sol-multichar-B.mp4" controls muted preload="metadata" playsinline></video>
+      <div class="caption">韩系女生（第一主角）和亚洲男生（第二主角）隔桌而坐，男生用手势讲故事，女生望向他听着。<strong>结果：</strong>两个人物身份都稳定保持，对手戏互动也很自然。</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ Slide 7 · 能力 2/3 · 运镜 + 服装 ═══ -->
+<section class="slide" id="s8">
+  <div class="slide-header">
+    <span><span class="slide-num">08 / 11</span> · 能力 2 / 3 · 镜头语言 + 批量产能</span>
+    <span>演示视频墙</span>
+  </div>
+  <h2 class="slide-title">让镜头有电影感 + 同一主角批量出多套素材</h2>
+  <p class="slide-subtitle">下面两组演示，都是 A 对照（默认或单一版本）和 B 升级（结构化指令）的对比。<strong>主角一次拍摄，可以衍生出 N 套素材</strong>，大幅提升买量 A/B 测试的产出速度。</p>
+
+  <h3 style="margin-top: 20px; font-size: 14px; letter-spacing: 0.1em; color: var(--accent-amber); text-transform: uppercase;">能力 2 · 镜头运动模板库（默认 vs 3 种电影级镜头）</h3>
+  <p style="font-size: 13px; color: var(--text-dim); line-height: 1.55; margin-top: 10px; margin-bottom: 14px;"><strong style="color: var(--text);">具体怎么做：</strong>已 demo 3 种代表性镜头（眩晕推进 / 360 环绕 / 暴力推近），可扩展到 N 种工业运镜，每种写成固定的 prompt 模板。用户在预设库里下拉选一个，系统自动在提示词最前面拼上模板（如：<em>"[Camera Movement: Dolly Zoom · Vertigo Effect] 镜头物理向前推进，同时焦距反向收缩拉远，制造希区柯克式眩晕效果..."</em>）。用户不用自己写镜头描述，下拉选完直接出视频。</p>
+  <div class="video-grid">
+    <div class="ab-cell a-side">
+      <div class="tag">A · 不指定镜头</div>
+      <video src="/hh-cases/sol-camera-A.mp4" controls muted preload="metadata" playsinline></video>
+      <div class="caption">不写镜头指令，模型自由发挥，镜头平淡</div>
+    </div>
+    <div class="ab-cell b-side">
+      <div class="tag">B1 · 眩晕推进（希区柯克式）</div>
+      <video src="/hh-cases/sol-camera-B1-dolly-zoom.mp4" controls muted preload="metadata" playsinline></video>
+      <div class="caption">人物大小不变，背景被透视压缩，营造心理紧张感</div>
+    </div>
+    <div class="ab-cell b-side">
+      <div class="tag">B2 · 360 度环绕</div>
+      <video src="/hh-cases/sol-camera-B2-orbit.mp4" controls muted preload="metadata" playsinline></video>
+      <div class="caption">镜头围绕主体平滑环绕，背景跟着流动</div>
+    </div>
+    <div class="ab-cell b-side">
+      <div class="tag">B3 · 暴力推近</div>
+      <video src="/hh-cases/sol-camera-B3-crash-zoom.mp4" controls muted preload="metadata" playsinline></video>
+      <div class="caption">镜头快速推到面部特写，视觉冲击力强</div>
+    </div>
+  </div>
+
+  <h3 style="margin-top: 28px; font-size: 14px; letter-spacing: 0.1em; color: var(--accent-amber); text-transform: uppercase;">能力 3 · 同一主角批量换装（1 个人物 → 4 套素材）</h3>
+  <p style="font-size: 13px; color: var(--text-dim); line-height: 1.55; margin-top: 10px; margin-bottom: 14px;"><strong style="color: var(--text);">具体怎么做：</strong>① 准备一张主角参考图（韩系女生主角参考图）；② 写一份"基础提示词模板"，把"穿什么"作为可替换变量（如：<em>"character1 换装成 &lt;服装风格&gt;，坐在窗边自然微笑..."</em>）；③ 准备 N 个穿搭描述（休闲牛仔 / 知性正装 / 街头运动…），批量替换变量生成 N 份提示词；④ 同时提交给「参考图生视频」并发执行，一次出 N 套素材。<strong style="color: var(--text);">主角面孔不变 = R2V 锚定参考图的力量，服装切换 = 提示词改写的力量。</strong></p>
+  <div class="video-grid">
+    <div class="ab-cell a-side">
+      <div class="tag">A · 原版</div>
+      <video src="/hh-cases/sol-wardrobe-A.mp4" controls muted preload="metadata" playsinline></video>
+      <div class="caption">米白针织衫（原服装）</div>
+    </div>
+    <div class="ab-cell b-side">
+      <div class="tag">B1 · 休闲风</div>
+      <video src="/hh-cases/sol-wardrobe-B1-casual.mp4" controls muted preload="metadata" playsinline></video>
+      <div class="caption">浅蓝丹宁牛仔外套</div>
+    </div>
+    <div class="ab-cell b-side">
+      <div class="tag">B2 · 职场知性</div>
+      <video src="/hh-cases/sol-wardrobe-B2-formal.mp4" controls muted preload="metadata" playsinline></video>
+      <div class="caption">米色西装外套 + 白衬衫</div>
+    </div>
+    <div class="ab-cell b-side">
+      <div class="tag">B3 · 街头运动</div>
+      <video src="/hh-cases/sol-wardrobe-B3-sporty.mp4" controls muted preload="metadata" playsinline></video>
+      <div class="caption">宽松卫衣 + 棒球帽</div>
+    </div>
+  </div>
+  <p style="margin-top: 16px; font-size: 13px; color: var(--text-dim); line-height: 1.55;"><strong style="color: var(--accent-ok);">关键观察：</strong>4 套服装版本里主角脸完全是同一个人（参考图生视频锁住主角的力量），但服装、配饰、氛围按剧本切换——<strong>同一个代言人 / 主播一次"拍摄"，可衍生出 N 套不同风格的素材，复用率高</strong>。</p>
+</section>
+
+<!-- ═══ Slide 8 · 未来探索方向 ═══ -->
+<section class="slide" id="s9">
+  <div class="slide-header">
+    <span><span class="slide-num">09 / 11</span> · 未来还能做什么</span>
+    <span>4 个待验证方向</span>
+  </div>
+  <h2 class="slide-title">未来还可以做的 4 件事（待验证）</h2>
+  <p class="slide-subtitle">在已落地的 8 个方案之外，我们还规划了 4 个值得探索的方向——<strong>都不依赖模型升级</strong>，只在我们自己的工作流层和提示词层做工程包装就能落地。</p>
+
+  <div class="exploration-grid">
+    <div class="exp-card">
+      <span class="tag">探索 1 · 多格分镜参考图法</span>
+      <h3>用一张多格图当一致性"地图"</h3>
+      <p><strong>具体怎么做：</strong>① 用 GPT Image 2 / Nano Banana 生成一张 4 行 × 3 列 = 12 格的分镜表图片，每格里同一主角做不同动作；② 把这张图作为参考图喂给视频模型，提示词写"按 storyboard 顺序演绎，前 4 秒用第 1 格、4-8 秒用第 2 格..."；③ 一段 15 秒视频里就出现 4 个镜头切换；④ 一张 12 格图 = 一段视频塞 4 镜，横切 3 行 = 3 段 = 45 秒；写第二页 12 格 = 90 秒。</p>
+      <div class="source">业界主流视频平台的"分镜参考图"思路（如 GPT Image 2 + 视频模型组合工作流）</div>
+    </div>
+    <div class="exp-card">
+      <span class="tag">探索 2 · 每段独立换参考图</span>
+      <h3>解决"场景切不到位"的问题</h3>
+      <p><strong>当前的痛点：</strong>方案 1 里第 3、4 段被主角参考图拽住，导致"厨房"、"玄关"切不到位。<br><strong>具体怎么做：</strong>① 提前为 4 个场景各准备一张参考图（卧室晨光、衣帽间挂衣、吧台咖啡杯、玄关风衣），每张图都有主角出现；② 调用时每段单独喂对应场景的参考图（不再 4 段共用一张）；③ 主角身份靠 "character1" 引用语法锁定，环境靠每段不同参考图切换；④ 这样既保住人物身份，又能让每段进入正确场景。</p>
+      <div class="source">来源：PDF 痛点复盘 + 60 秒实战观察</div>
+    </div>
+    <div class="exp-card">
+      <span class="tag">探索 3 · 每 5 秒一个钩子</span>
+      <h3>让 AI 视频也有"节奏感"</h3>
+      <p><strong>具体怎么做：</strong>① 写一个"剧本生成器"提示词，约束 ChatGPT 输出"60 秒分 12 个钩子点 × 每个 5 秒"的剧本（JSON 格式：每段 5-8 秒，包含 visual_action / emotion / hook_type）；② 钩子类型只能选 4 类：动作变化 / 情绪反转 / 物体出现 / 光线变化；③ 后端把 12 个钩子自动映射成 4 段 × 15 秒（每段 3 个钩子）的视频提示词；④ 跑方案 1 的链式拼接，出来的 60 秒成品自带节奏感。</p>
+      <div class="source">业界长视频生成的剧本结构实践，<a href="https://www.youtube.com/watch?v=K5j47JWr9_g" target="_blank" rel="noopener">参考资料</a></div>
+    </div>
+    <div class="exp-card">
+      <span class="tag">探索 4 · 三段式自动分镜（重点推荐）</span>
+      <h3>从"写提示词"升级成"做导演"</h3>
+      <p><strong>具体怎么做（3 次 ChatGPT 调用）：</strong><br>① 输入一句话主题（比如"60 秒韩系治愈日常 vlog"）→ ChatGPT 生成<strong>故事梗概</strong>（按时长切句）；<br>② 把故事梗概输入 → ChatGPT 生成 <strong>16 个镜头的分镜表 JSON</strong>（每镜含景别 / 动作 / 情绪 / 光线 / 时长）；<br>③ 把分镜表 JSON 输入 → ChatGPT 生成每镜的<strong>详细画面描述</strong>（即五要素提示词）；<br>④ 用户在第 ② 步可手动调整 scene 顺序、删减或添加镜头，然后一键批量生成视频。<strong>定位：</strong>提示词工程的上层封装，引入分镜层让用户在视频生成前可调整结构。</p>
+      <div class="source">Midjourney + Runway 业界工业级 pipeline 实践，<a href="https://www.youtube.com/watch?v=qQVDTX4qDbM" target="_blank" rel="noopener">参考资料</a></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ Slide 9 · 实施路径 ═══ -->
+<section class="slide" id="s10">
+  <div class="slide-header">
+    <span><span class="slide-num">10 / 11</span> · 实施路径</span>
+    <span>每个方案的真实排期</span>
+  </div>
+  <h2 class="slide-title">实施路径</h2>
+
+  <div class="roadmap-strip">
+    <div class="rs-item live">
+      <div class="status">已上线</div>
+      <h3>1. 长视频链式拼接</h3>
+      <p>四层一致性锚定方案已经跑通，60 秒成片可在 Studio 工坊 / 场景预设库直接使用。</p>
+      <div class="eta">立即可用</div>
+    </div>
+    <div class="rs-item wip">
+      <div class="status">进行中</div>
+      <h3>2. 画面与配音分离 + 多语言</h3>
+      <p>"内心独白"提示词已就位；阿里云语音合成 / ElevenLabs / 对口型流水线对接中。</p>
+      <div class="eta">短期可上线</div>
+    </div>
+    <div class="rs-item plan">
+      <div class="status">规划中</div>
+      <h3>3. 循环播放（待模型升级）</h3>
+      <p>三档方案已经评审通过；FFmpeg 循环点检测脚本、矢量动画工程模板待启动。</p>
+      <div class="eta">中期规划</div>
+    </div>
+    <div class="rs-item wip">
+      <div class="status">进行中</div>
+      <h3>4. 不同场景自动挑模型</h3>
+      <p>33 个场景预设按分类落地完成；自动选模型路由 + 多供应商接入待落地。</p>
+      <div class="eta">短期可灰度</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ Slide 10 · 收尾 ═══ -->
+<section class="slide closing" id="s11">
+  <div class="slide-header">
+    <span><span class="slide-num">11 / 11</span> · 总结</span>
+    <a class="slide-link-out" href="/hh-solutions.html">技术详情版 →</a>
+  </div>
+  <h2>
+    <span class="grad">业界几个工程方法</span><br>
+    可以补充到当前方案上
+  </h2>
+  <p style="font-size: 18px; color: var(--text-dim); max-width: 760px; margin: 0 auto 12px; line-height: 1.6;">
+    研究下来发现：主流 AI 视频平台真正拉开差距的不是模型本身，而是<strong>模型外的工程包装</strong>——剧本结构、分镜模板、批量调度、失败片段修复、多主角一致性、镜头运动模板库。
+  </p>
+  <p style="font-size: 16px; color: var(--text-faint); max-width: 760px; margin: 0 auto; line-height: 1.55;">
+    HappyHorse 单次 15 秒的硬限制无法在我们这一层解决（属于模型本身的问题），但<strong>所有方案都建在工作流层和提示词层</strong>，不依赖模型升级也能逐步落地。
+  </p>
+
+  <div class="closing-actions">
+    <a href="/hh-solutions.html" class="closing-btn primary">查看技术详情版</a>
+    <a href="/" class="closing-btn">Studio 工坊</a>
+    <a href="/hh-guide.html" class="closing-btn">提示词指南</a>
+  </div>
+</section>
+
+</body>
+</html>
