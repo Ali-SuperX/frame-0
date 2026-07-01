@@ -8,6 +8,7 @@ import { useLocale } from "next-intl";
 import {
   useStudioStore,
   type EditorClip,
+  type EditorTextOverlay,
   type EditorTrack,
   type Job,
   DEFAULT_TRACKS,
@@ -1226,6 +1227,16 @@ export default function Editor() {
     });
     flash(zh ? "字幕已清除" : "Captions cleared");
   }
+  function applyCaptionStyleToAll(style: Pick<EditorTextOverlay, "position" | "color" | "sizePx">) {
+    if (captionCount <= 1) return;
+    editorBatch(() => {
+      allClips.forEach((clip) => {
+        if (!clip.text?.content?.trim()) return;
+        updateClip(clip.id, { text: { ...clip.text, ...style } });
+      });
+    });
+    flash(zh ? "字幕样式已同步" : "Caption style synced");
+  }
   async function handleExport() {
     const allClips = clips.length > 0 ? clips : videoClips;
     const exportClips = allClips
@@ -2010,6 +2021,10 @@ export default function Editor() {
                     {activeCaptionText && activeTextClip?.text && (
                       <div
                         className={`ed-overlay ed-overlay-${activeTextClip.text.position}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          selectSingle(activeTextClip.id);
+                        }}
                         style={{
                           color: activeTextClip.text.color,
                           fontSize: activeTextClip.text.sizePx,
@@ -2691,6 +2706,8 @@ export default function Editor() {
               zh={zh}
               editorLevel={editorLevel as 1 | 2}
               onUpdate={(patch) => updateClip(selected.id, patch)}
+              onApplyCaptionStyleToAll={applyCaptionStyleToAll}
+              captionStyleTargetCount={captionCount}
               onMove={(dir) => moveClip(selected.id, dir)}
               onRemove={() => {
                 // Revoke blob URL + delete IDB blob so local files don't leak
@@ -3695,10 +3712,12 @@ export default function Editor() {
           overflow-wrap: anywhere;
           padding: 8px 14px;
           transform: translateX(-50%);
+          z-index: 6;
           text-shadow:
             0 2px 4px rgba(0, 0, 0, 0.8),
             0 0 8px rgba(0, 0, 0, 0.4);
-          pointer-events: none;
+          pointer-events: auto;
+          cursor: text;
         }
         .ed-overlay span {
           display: block;

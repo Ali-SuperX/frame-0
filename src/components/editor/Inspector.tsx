@@ -6,6 +6,8 @@ import type {
   EditorTextOverlay,
 } from "@/lib/store";
 
+type CaptionStylePatch = Pick<EditorTextOverlay, "position" | "color" | "sizePx">;
+
 /**
  * 右侧 Inspector —— **上下文感知**:选什么类型显示什么属性。
  *
@@ -37,6 +39,8 @@ export function ClipInspector({
   clip,
   zh,
   onUpdate,
+  onApplyCaptionStyleToAll,
+  captionStyleTargetCount = 0,
   onMove,
   onRemove,
   isFirst,
@@ -45,6 +49,8 @@ export function ClipInspector({
   clip: EditorClip;
   zh: boolean;
   onUpdate: (patch: Partial<EditorClip>) => void;
+  onApplyCaptionStyleToAll?: (style: CaptionStylePatch) => void;
+  captionStyleTargetCount?: number;
   onMove: (dir: -1 | 1) => void;
   onRemove: () => void;
   isFirst: boolean;
@@ -80,8 +86,8 @@ export function ClipInspector({
       </div>
 
       {/* ─── 按 type 分发渲染:视频 / 图片 / 音频 三套不同布局 ─── */}
-      {kind === "video" && <VideoSections clip={clip} zh={zh} onUpdate={onUpdate} isPipTrack={isPipTrack} />}
-      {kind === "image" && <ImageSections clip={clip} zh={zh} onUpdate={onUpdate} isPipTrack={isPipTrack} />}
+      {kind === "video" && <VideoSections clip={clip} zh={zh} onUpdate={onUpdate} isPipTrack={isPipTrack} onApplyCaptionStyleToAll={onApplyCaptionStyleToAll} captionStyleTargetCount={captionStyleTargetCount} />}
+      {kind === "image" && <ImageSections clip={clip} zh={zh} onUpdate={onUpdate} isPipTrack={isPipTrack} onApplyCaptionStyleToAll={onApplyCaptionStyleToAll} captionStyleTargetCount={captionStyleTargetCount} />}
       {kind === "audio" && <AudioSections clip={clip} zh={zh} onUpdate={onUpdate} />}
 
       <style jsx>{`
@@ -228,8 +234,8 @@ function TypeBanner({ clip, kind, zh }: { clip: EditorClip; kind: ClipKind; zh: 
  * VideoSections —— 视频独享:基础(trim/speed)/ 音频 / 画面效果 / 调色 / 转场 / 速度高级 / [PiP] / 字幕
  * ────────────────────────────────────────────────────────── */
 function VideoSections({
-  clip, zh, onUpdate, isPipTrack,
-}: { clip: EditorClip; zh: boolean; onUpdate: (p: Partial<EditorClip>) => void; isPipTrack: boolean }) {
+  clip, zh, onUpdate, isPipTrack, onApplyCaptionStyleToAll, captionStyleTargetCount,
+}: { clip: EditorClip; zh: boolean; onUpdate: (p: Partial<EditorClip>) => void; isPipTrack: boolean; onApplyCaptionStyleToAll?: (style: CaptionStylePatch) => void; captionStyleTargetCount: number }) {
   const dur = clip.duration;
   const text: EditorTextOverlay = clip.text ?? { content: "", position: "bottom", color: "#ffffff", sizePx: 32 };
   const hasReverse = !!clip.reversed;
@@ -334,7 +340,7 @@ function VideoSections({
 
       {isPipTrack && <PipSection clip={clip} zh={zh} onUpdate={onUpdate} />}
 
-      <CaptionSection zh={zh} onUpdate={onUpdate} hasCaption={hasCaption} text={text} />
+      <CaptionSection zh={zh} onUpdate={onUpdate} hasCaption={hasCaption} text={text} onApplyStyleToAll={onApplyCaptionStyleToAll} captionStyleTargetCount={captionStyleTargetCount} />
     </>
   );
 }
@@ -344,8 +350,8 @@ function VideoSections({
  *   (无 trim/speed/音频/反转/淡入淡出/速度高级 —— 静态图不需要)
  * ────────────────────────────────────────────────────────── */
 function ImageSections({
-  clip, zh, onUpdate, isPipTrack,
-}: { clip: EditorClip; zh: boolean; onUpdate: (p: Partial<EditorClip>) => void; isPipTrack: boolean }) {
+  clip, zh, onUpdate, isPipTrack, onApplyCaptionStyleToAll, captionStyleTargetCount,
+}: { clip: EditorClip; zh: boolean; onUpdate: (p: Partial<EditorClip>) => void; isPipTrack: boolean; onApplyCaptionStyleToAll?: (style: CaptionStylePatch) => void; captionStyleTargetCount: number }) {
   const text: EditorTextOverlay = clip.text ?? { content: "", position: "bottom", color: "#ffffff", sizePx: 32 };
   const hasOpacity = (clip.opacity ?? 1) < 1;
   const hasAdjust = !!clip.adjust && ((clip.adjust.brightness ?? 0) !== 0 || (clip.adjust.contrast ?? 1) !== 1 || (clip.adjust.saturation ?? 1) !== 1);
@@ -368,7 +374,7 @@ function ImageSections({
       <ColorSection clip={clip} zh={zh} onUpdate={onUpdate} colorActive={colorActive} hasAdjust={hasAdjust} hasFilter={hasFilter} />
       <TransitionSection clip={clip} zh={zh} onUpdate={onUpdate} hasTransition={hasTransition} />
       {isPipTrack && <PipSection clip={clip} zh={zh} onUpdate={onUpdate} />}
-      <CaptionSection zh={zh} onUpdate={onUpdate} hasCaption={hasCaption} text={text} />
+      <CaptionSection zh={zh} onUpdate={onUpdate} hasCaption={hasCaption} text={text} onApplyStyleToAll={onApplyCaptionStyleToAll} captionStyleTargetCount={captionStyleTargetCount} />
     </>
   );
 }
@@ -627,36 +633,94 @@ function PipSection({ clip, zh, onUpdate }: { clip: EditorClip; zh: boolean; onU
   );
 }
 
-function CaptionSection({ zh, onUpdate, hasCaption, text }: { zh: boolean; onUpdate: (p: Partial<EditorClip>) => void; hasCaption: boolean; text: EditorTextOverlay }) {
+function CaptionSection({
+  zh,
+  onUpdate,
+  hasCaption,
+  text,
+  onApplyStyleToAll,
+  captionStyleTargetCount,
+}: {
+  zh: boolean;
+  onUpdate: (p: Partial<EditorClip>) => void;
+  hasCaption: boolean;
+  text: EditorTextOverlay;
+  onApplyStyleToAll?: (style: CaptionStylePatch) => void;
+  captionStyleTargetCount: number;
+}) {
+  const setText = (patch: Partial<EditorTextOverlay>) => {
+    onUpdate({ text: { ...text, ...patch } });
+  };
+  const setSize = (size: number) => {
+    const next = Number.isFinite(size) ? size : 28;
+    setText({ sizePx: Math.max(12, Math.min(96, next)) });
+  };
+
   return (
     <Section
       title={zh ? "字幕" : "Caption"}
       icon={<IcoCaption />}
       hasContent={hasCaption}
       badge={hasCaption ? `"${text.content.slice(0, 12)}${text.content.length > 12 ? "…" : ""}"` : undefined}
-      defaultOpen={hasCaption}
+      defaultOpen
     >
+      <Row label={zh ? "状态" : "State"}>
+        <Toggle
+          on={hasCaption}
+          onChange={(on) => {
+            if (on) {
+              onUpdate({ text });
+              return;
+            }
+            onUpdate({ text: undefined });
+          }}
+          labelOn={zh ? "已启用" : "Enabled"}
+          labelOff={zh ? "未启用" : "Disabled"}
+        />
+      </Row>
       <Row label={zh ? "文字" : "Text"}>
-        <input className="cap-input" placeholder={zh ? "留空则不叠加" : "Leave empty for none"} value={text.content} onChange={(e) => onUpdate({ text: { ...text, content: e.target.value } })} />
+        <textarea
+          className="cap-textarea"
+          placeholder={zh ? "输入字幕文本" : "Enter caption text"}
+          value={text.content}
+          onChange={(e) => setText({ content: e.target.value })}
+          rows={4}
+        />
       </Row>
       <Row label={zh ? "位置" : "Position"}>
-        <Segs options={[["top", zh ? "顶部" : "Top"], ["center", zh ? "居中" : "Center"], ["bottom", zh ? "底部" : "Bottom"]]} value={text.position} onChange={(v) => onUpdate({ text: { ...text, position: v as EditorTextOverlay["position"] } })} />
+        <Segs options={[["top", zh ? "顶部" : "Top"], ["center", zh ? "居中" : "Center"], ["bottom", zh ? "底部" : "Bottom"]]} value={text.position} onChange={(v) => setText({ position: v as EditorTextOverlay["position"] })} />
       </Row>
       <div className="cap-row-2">
         <Row label={zh ? "颜色" : "Color"}>
-          <input type="color" value={text.color} onChange={(e) => onUpdate({ text: { ...text, color: e.target.value } })} className="cap-color" aria-label={zh ? "字幕颜色" : "Caption color"} />
+          <input type="color" value={text.color} onChange={(e) => setText({ color: e.target.value })} className="cap-color" aria-label={zh ? "字幕颜色" : "Caption color"} />
         </Row>
         <Row label={zh ? "字号" : "Size"}>
-          <input type="number" min={12} max={120} value={text.sizePx} onChange={(e) => onUpdate({ text: { ...text, sizePx: Math.max(12, Math.min(120, Number(e.target.value))) } })} className="cap-input" />
+          <input type="number" min={12} max={96} value={text.sizePx} onChange={(e) => setSize(Number(e.target.value))} className="cap-input" />
         </Row>
       </div>
+      <Slider min={12} max={72} step={1} value={text.sizePx} onChange={setSize} format={(v) => `${v}px`} />
+      <div className="cap-presets">
+        <button type="button" onClick={() => setSize(22)}>{zh ? "小" : "S"}</button>
+        <button type="button" onClick={() => setSize(28)}>{zh ? "中" : "M"}</button>
+        <button type="button" onClick={() => setSize(36)}>{zh ? "大" : "L"}</button>
+        <button type="button" onClick={() => setText({ color: "#ffffff" })}>{zh ? "白字" : "White"}</button>
+      </div>
       <div className="cap-actions">
+        <button
+          type="button"
+          className="cap-secondary"
+          disabled={!onApplyStyleToAll || captionStyleTargetCount <= 1}
+          onClick={() => onApplyStyleToAll?.({ position: text.position, color: text.color, sizePx: text.sizePx })}
+        >
+          {zh ? "样式应用到全部" : "Apply style to all"}
+        </button>
         <button type="button" className="cap-clear" disabled={!hasCaption && !text.content.trim()} onClick={() => onUpdate({ text: undefined })}>
           {zh ? "清除字幕" : "Clear caption"}
         </button>
       </div>
       <style jsx>{`
-        .cap-input {
+        .cap-input,
+        .cap-textarea {
           width: 100%;
           background: var(--ink-2);
           border: 1px solid var(--line);
@@ -668,7 +732,13 @@ function CaptionSection({ zh, onUpdate, hasCaption, text }: { zh: boolean; onUpd
           outline: none;
           transition: border-color 0.15s;
         }
-        .cap-input:focus {
+        .cap-textarea {
+          min-height: 86px;
+          resize: vertical;
+          line-height: 1.45;
+        }
+        .cap-input:focus,
+        .cap-textarea:focus {
           border-color: color-mix(in oklab, var(--type-color, var(--accent)) 60%, var(--line));
           box-shadow: 0 0 0 3px color-mix(in oklab, var(--type-color, var(--accent)) 12%, transparent);
         }
@@ -682,10 +752,13 @@ function CaptionSection({ zh, onUpdate, hasCaption, text }: { zh: boolean; onUpd
           padding: 3px;
         }
         .cap-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-        .cap-actions {
-          display: flex;
-          justify-content: flex-end;
+        .cap-presets {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 6px;
         }
+        .cap-presets button,
+        .cap-secondary,
         .cap-clear {
           border: 1px solid var(--line);
           background: color-mix(in oklab, var(--ink-2) 86%, transparent);
@@ -695,10 +768,24 @@ function CaptionSection({ zh, onUpdate, hasCaption, text }: { zh: boolean; onUpd
           font-size: 12px;
           cursor: pointer;
         }
+        .cap-presets button:hover,
+        .cap-secondary:hover:not(:disabled),
         .cap-clear:hover:not(:disabled) {
           border-color: color-mix(in oklab, var(--type-color, var(--accent)) 55%, var(--line));
           color: var(--type-color, var(--accent));
         }
+        .cap-actions {
+          display: flex;
+          gap: 8px;
+          justify-content: flex-end;
+        }
+        .cap-secondary {
+          flex: 1;
+        }
+        .cap-clear {
+          flex: 0 0 auto;
+        }
+        .cap-secondary:disabled,
         .cap-clear:disabled {
           opacity: 0.45;
           cursor: not-allowed;
