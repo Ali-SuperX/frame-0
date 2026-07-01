@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   useStudioStore,
   type Job,
@@ -13,9 +13,14 @@ import {
   getVideoDuration,
 } from "@/lib/r2v/videoUtils";
 import { submitJobRequest } from "@/lib/bailian/submitJob";
-import { getI2VVariant, getR2VVariant } from "@/lib/bailian/models";
 import { uploadDataUrlAsMedia } from "./uploadMedia";
 import AnchorRefThumb from "./AnchorRefThumb";
+import ContinuationModelSelect from "./ContinuationModelSelect";
+import {
+  continuationModelsForMode,
+  continuationParamsFor,
+  defaultContinuationModelId,
+} from "./continuationModels";
 import "@/styles/r2v.css";
 
 type Props = {
@@ -134,9 +139,10 @@ export default function ContinuationChainPanel({ job, zh, onClose }: Props) {
   const [taskDefinition, setTaskDefinition] = useState("");
 
   // 🆕 B2：锚点参考图（从源 job 继承的 reference_urls）
-  const origRefs: JobMedia[] = Array.isArray(job.media?.reference_urls)
-    ? job.media!.reference_urls
-    : [];
+  const origRefs: JobMedia[] = useMemo(
+    () => (Array.isArray(job.media?.reference_urls) ? job.media.reference_urls : []),
+    [job.media]
+  );
   const [enabledRefs, setEnabledRefs] = useState<Set<number>>(
     () => new Set(origRefs.map((_, i) => i))
   );
@@ -152,8 +158,14 @@ export default function ContinuationChainPanel({ job, zh, onClose }: Props) {
   const abortRef = useRef<AbortController | null>(null);
 
   // 🆕 B3：段 2+ 默认 r2v（锚点 refs + 上段尾帧合并），可切硬衔接走 i2v
-  const r2vModelId = getR2VVariant(job.modelId);
-  const i2vModelId = getI2VVariant(job.modelId);
+  const r2vModels = useMemo(() => continuationModelsForMode("r2v"), []);
+  const i2vModels = useMemo(() => continuationModelsForMode("i2v"), []);
+  const [r2vModelId, setR2vModelId] = useState(() =>
+    defaultContinuationModelId("r2v", job.modelId)
+  );
+  const [i2vModelId, setI2vModelId] = useState(() =>
+    defaultContinuationModelId("i2v", job.modelId)
+  );
   const supported = !!r2vModelId;
 
   // ── 衔接模式 ──
@@ -263,12 +275,6 @@ export default function ContinuationChainPanel({ job, zh, onClose }: Props) {
     const ctrl = new AbortController();
     abortRef.current = ctrl;
 
-    const params = {
-      resolution: job.params.resolution ?? "720P",
-      ratio: job.params.ratio ?? "16:9",
-      watermark: job.params.watermark ?? true,
-    };
-
     // 🆕 锚点参考图：从 origRefs 里挑用户启用的，URL 必须是 oss:// 或 https://
     // 必须保留 localKey/localPath/thumbDataUrl —— 否则后续本地 job 渲染时只剩
     // oss:// 浏览器渲染不出来，参考图列表全部退化成 OSS 占位符。
@@ -334,19 +340,20 @@ export default function ContinuationChainPanel({ job, zh, onClose }: Props) {
           bridgeFrameDataUrl = chosen.dataUrl;
         }
 
-        // 上传衔接帧到 OSS（段 1 = 起始帧；段 N≥2 = 上段尾帧）
-        const frameName = `chain_seg${i + 1}_bridge_${Date.now()}.jpg`;
-        const bridge = await uploadDataUrlAsMedia(bridgeFrameDataUrl, frameName, r2vModelId!);
-        const bridgeOssUrl = bridge.ossUrl;
-        if (i === 0) prevTailOss = { url: bridgeOssUrl, name: frameName };
-
         const segPromptCore = seg.prompt.trim();
         // 硬衔接：段 2+ 切 I2V，bridge frame 锁为首帧；段 1 仍走 R2V 让锚点 refs 进场
         const useHardI2V = effectiveChainMode === "hard" && i > 0 && !!i2vModelId;
         // 切镜：段 2+ 走 R2V 但不带上段尾帧，prompt 用 SCENE_CUT_HINT
         const isCutMode = effectiveChainMode === "cut" && i > 0;
-        const segModelId = useHardI2V ? i2vModelId! : r2vModelId!;
+        const segModelId = useHardI2V ? i2vModelId : r2vModelId;
         const segMode: "r2v" | "i2v" = useHardI2V ? "i2v" : "r2v";
+        const segParams = continuationParamsFor(segModelId, job.params, seg.duration);
+
+        // 上传衔接帧到 OSS（段 1 = 起始帧；段 N≥2 = 上段尾帧）
+        const frameName = `chain_seg${i + 1}_bridge_${Date.now()}.jpg`;
+        const bridge = await uploadDataUrlAsMedia(bridgeFrameDataUrl, frameName, segModelId);
+        const bridgeOssUrl = bridge.ossUrl;
+        if (i === 0) prevTailOss = { url: bridgeOssUrl, name: frameName };
 
         // refs 排布：
         // - R2V 段 1：起始帧 + 锚点 refs（起始帧为「图1」让 prompt 可锚定）
@@ -386,7 +393,7 @@ export default function ContinuationChainPanel({ job, zh, onClose }: Props) {
         const jobId = createJobFromPayload({
           modelId: segModelId,
           mode: segMode,
-          params: { ...params, duration: seg.duration },
+          params: segParams,
           media: useHardI2V
             ? ({
                 img_url: {
@@ -419,7 +426,7 @@ export default function ContinuationChainPanel({ job, zh, onClose }: Props) {
         // 提交到 DashScope
         const { taskId } = await submitJobRequest({
           modelId: segModelId,
-          params: { ...params, duration: seg.duration },
+          params: segParams,
           media: useHardI2V
             ? ({ img_url: { url: bridgeOssUrl, name: frameName } } as Job["media"])
             : ({ reference_urls: allRefs } as Job["media"]),
@@ -519,6 +526,27 @@ export default function ContinuationChainPanel({ job, zh, onClose }: Props) {
             : zh
               ? `📌 软衔接：全部段 R2V（${r2vModelId}），上段尾帧作【图1】塞进 refs，prompt 显式声明"图1为本段首帧"`
               : `📌 Soft: all segments R2V (${r2vModelId}); prev tail injected as ref [图1] with prompt directive.`}
+      </div>
+
+      <div className="cont-studio-section">
+        <div className="cont-studio-model-grid cont-studio-model-grid--chain">
+          <ContinuationModelSelect
+            label={zh ? "R2V 自定义模型" : "R2V model"}
+            models={r2vModels}
+            value={r2vModelId}
+            onChange={setR2vModelId}
+            disabled={chainRunning}
+            hint={zh ? "软衔接、切镜、段 1 使用" : "Used by soft, cut and seg 1"}
+          />
+          <ContinuationModelSelect
+            label={zh ? "I2V 自定义模型" : "I2V model"}
+            models={i2vModels}
+            value={i2vModelId}
+            onChange={setI2vModelId}
+            disabled={chainRunning}
+            hint={zh ? "硬衔接的段 2 以后使用" : "Used by hard mode after seg 1"}
+          />
+        </div>
       </div>
 
       {/* ── 衔接模式开关 ── */}
@@ -796,4 +824,3 @@ export default function ContinuationChainPanel({ job, zh, onClose }: Props) {
     </div>
   );
 }
-

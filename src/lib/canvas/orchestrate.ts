@@ -7,6 +7,8 @@
  * 改输入也改输出；orchestrateGraph 保留为「一键到底」一次性产整图。
  */
 
+import { apiKeysHeader } from "@/lib/bailian/withUserKeys";
+
 export type OrchMode = "creative" | "drama";
 
 export type OrchestratedNode = {
@@ -61,7 +63,7 @@ async function callOrchestrator(
   try {
     res = await fetch("/api/bailian/chat", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...apiKeysHeader() },
       body: JSON.stringify({
         messages: [
           { role: "system", content: systemPrompt },

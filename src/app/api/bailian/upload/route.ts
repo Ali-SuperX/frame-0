@@ -7,6 +7,7 @@ import {
   persistUploadBytes,
   triggerUploadOssSidecar,
 } from "@/lib/bailian/uploadCache";
+import { localUploadPath } from "@/lib/mediaPaths";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -27,7 +28,7 @@ export async function POST(req: Request) {
 
     // Always persist the upload bytes locally — survives IDB / cache clears.
     const { ext, isNew } = await persistUploadBytes(buf, sha, filename);
-    const localPath = `/api/uploads/${sha}.${ext}`;
+    const localPath = localUploadPath(sha, ext);
 
     // Content-hash dedup: same bytes uploaded recently → return cached oss://
     const cached = await getCached(sha);

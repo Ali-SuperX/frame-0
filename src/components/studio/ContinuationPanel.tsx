@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useStudioStore, type Job, type JobMedia } from "@/lib/store";
 import {
   extractKeyFrames,
@@ -8,9 +8,14 @@ import {
   getVideoDuration,
 } from "@/lib/r2v/videoUtils";
 import { submitJobRequest } from "@/lib/bailian/submitJob";
-import { getI2VVariant, getR2VVariant } from "@/lib/bailian/models";
 import { uploadDataUrlAsMedia } from "./uploadMedia";
 import AnchorRefThumb from "./AnchorRefThumb";
+import ContinuationModelSelect from "./ContinuationModelSelect";
+import {
+  continuationModelsForMode,
+  continuationParamsFor,
+  defaultContinuationModelId,
+} from "./continuationModels";
 import "@/styles/r2v.css";
 
 /** 延续模式：R2V 多参考图 / I2V 仅首帧 */
@@ -66,9 +71,10 @@ export default function ContinuationPanel({ job, zh, onClose }: Props) {
   const [extracting, setExtracting] = useState(false);
 
   // Original reference images from the source job
-  const origRefs: JobMedia[] = Array.isArray(job.media?.reference_urls)
-    ? job.media!.reference_urls
-    : [];
+  const origRefs: JobMedia[] = useMemo(
+    () => (Array.isArray(job.media?.reference_urls) ? job.media.reference_urls : []),
+    [job.media]
+  );
   const [selectedRefs, setSelectedRefs] = useState<Set<number>>(
     () => new Set(origRefs.map((_, i) => i))
   );
@@ -80,11 +86,16 @@ export default function ContinuationPanel({ job, zh, onClose }: Props) {
   // r2v：保留多参考图+多锚定帧（已有功能）
   // i2v：仅用 1 帧作为首帧，无参考图（新功能）
   const [contMode, setContMode] = useState<ContMode>("r2v");
-  const i2vModelId = getI2VVariant(job.modelId);
+  const r2vModels = useMemo(() => continuationModelsForMode("r2v"), []);
+  const i2vModels = useMemo(() => continuationModelsForMode("i2v"), []);
+  const [r2vModelId, setR2vModelId] = useState(() =>
+    defaultContinuationModelId("r2v", job.modelId)
+  );
+  const [i2vModelId, setI2vModelId] = useState(() =>
+    defaultContinuationModelId("i2v", job.modelId)
+  );
+  const r2vSupported = !!r2vModelId;
   const i2vSupported = !!i2vModelId;
-  // r2v 延续也可能跨模型 —— 比如源任务是 video-edit，本身没有 r2v 能力，
-  // 必须切到同家族的 r2v 模型（happyhorse-1.1-r2v）。已是 r2v 时返回自身。
-  const r2vModelId = getR2VVariant(job.modelId) ?? job.modelId;
 
   // ── extract key frames on mount ──
   useEffect(() => {
@@ -192,18 +203,12 @@ export default function ContinuationPanel({ job, zh, onClose }: Props) {
     setPhase("submitted");
 
     const segPrompt = `（延续上一段画面）${prompt.trim()}`;
-    const params: Record<string, unknown> = {
-      resolution: job.params.resolution ?? "720P",
-      ratio: job.params.ratio ?? "16:9",
-      duration,
-      watermark: job.params.watermark ?? true,
-    };
-
     // ── i2v 分支：只把一帧当首帧，模型切到 i2v 变体 ──
     if (contMode === "i2v") {
       const firstFrame = keyFrames.find((kf) => selectedFrames.has(kf.label));
       if (!firstFrame) { setPhase("ready"); return; }
-      const targetModelId = i2vModelId!;
+      const targetModelId = i2vModelId;
+      const params = continuationParamsFor(targetModelId, job.params, duration);
       const frameName = `cont_first_${firstFrame.label}_${Date.now()}.jpg`;
 
       // 先建本地 job 记录（带 dataUrl 缩略），UI 立即可见
@@ -247,6 +252,9 @@ export default function ContinuationPanel({ job, zh, onClose }: Props) {
     }
 
     // ── r2v 分支（默认）：多参考图 + 多锚定帧 ──
+    if (!r2vSupported) { setPhase("ready"); return; }
+    const targetModelId = r2vModelId;
+    const params = continuationParamsFor(targetModelId, job.params, duration);
     // 原始参考图已是 oss:// —— 全字段透传，避免本地 job 渲染时退化为 OSS 占位符
     type RefItem = { url: string; name?: string; localKey?: string; localPath?: string; thumbDataUrl?: string; mime?: string };
     const origRefUrls: RefItem[] = [];
@@ -277,7 +285,7 @@ export default function ContinuationPanel({ job, zh, onClose }: Props) {
 
     // 先建本地 job —— 锚定帧暂用 dataUrl 缩略，UI 立即可见
     const jobId = createJobFromPayload({
-      modelId: r2vModelId,
+      modelId: targetModelId,
       mode: "r2v",
       params,
       media: {
@@ -301,7 +309,7 @@ export default function ContinuationPanel({ job, zh, onClose }: Props) {
       const frameRefs: RefItem[] = [];
       for (const kf of pickedFrames) {
         const name = `cont_${kf.label}_${Date.now()}.jpg`;
-        const m = await uploadDataUrlAsMedia(kf.dataUrl, name, r2vModelId);
+        const m = await uploadDataUrlAsMedia(kf.dataUrl, name, targetModelId);
         frameRefs.push({ url: m.ossUrl, name, localPath: m.localPath, thumbDataUrl: kf.dataUrl });
       }
       const referenceUrls = [...origRefUrls, ...frameRefs];
@@ -312,7 +320,7 @@ export default function ContinuationPanel({ job, zh, onClose }: Props) {
         },
       });
       const { taskId } = await submitJobRequest({
-        modelId: r2vModelId,
+        modelId: targetModelId,
         params,
         media: { reference_urls: referenceUrls },
         prompt: segPrompt,
@@ -327,11 +335,10 @@ export default function ContinuationPanel({ job, zh, onClose }: Props) {
     }
 
     onClose();
-    // r2vModelId 从 job.modelId derive(line 87),lint 不识别 derive 关系。
-    // 显式加进 deps 让闭包始终拿到最新值(r2v 提交分支用 line 280/304/315)
   }, [
     phase, prompt, duration, keyFrames, selectedFrames, selectedRefs,
     origRefs, job, overBudget, contMode, i2vModelId, i2vSupported, r2vModelId,
+    r2vSupported,
     createJobFromPayload, setJobStatus, selectJob, onClose,
   ]);
 
@@ -399,6 +406,28 @@ export default function ContinuationPanel({ job, zh, onClose }: Props) {
             : `📌 Will switch to ${i2vModelId}, only the selected frame is used as first frame`}
         </div>
       )}
+
+      <div className="cont-studio-model-grid">
+        {contMode === "r2v" ? (
+          <ContinuationModelSelect
+            label={zh ? "自定义模型" : "Custom model"}
+            models={r2vModels}
+            value={r2vModelId}
+            onChange={setR2vModelId}
+            disabled={phase === "submitted"}
+            hint={zh ? "本次参考图延续使用" : "Used for this R2V extend"}
+          />
+        ) : (
+          <ContinuationModelSelect
+            label={zh ? "自定义模型" : "Custom model"}
+            models={i2vModels}
+            value={i2vModelId}
+            onChange={setI2vModelId}
+            disabled={phase === "submitted"}
+            hint={zh ? "本次首帧延续使用" : "Used for this I2V extend"}
+          />
+        )}
+      </div>
 
       {/* ── original reference images — 仅 r2v 显示 ── */}
       {contMode === "r2v" && origRefs.length > 0 && (
@@ -597,8 +626,8 @@ export default function ContinuationPanel({ job, zh, onClose }: Props) {
         onClick={submit}
         disabled={
           !prompt.trim() || phase === "submitted"
-          || (contMode === "r2v" && overBudget)
-          || (contMode === "i2v" && selectedFrames.size !== 1)
+          || (contMode === "r2v" && (overBudget || !r2vSupported))
+          || (contMode === "i2v" && (selectedFrames.size !== 1 || !i2vSupported))
         }
       >
         {contMode === "i2v"

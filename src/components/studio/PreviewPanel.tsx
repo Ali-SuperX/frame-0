@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import type { Job, JobMedia } from "@/lib/store";
 import { translateError } from "@/lib/bailian/errors";
 import { getModel, isImageMode, MODE_LABELS } from "@/lib/bailian/models";
+import { normalizeLocalUploadPath } from "@/lib/mediaPaths";
 import VideoPlayer from "./VideoPlayer";
 import JobImage from "./JobImage";
 import { fmtDuration, fmtClock } from "./helpers";
@@ -212,11 +213,11 @@ export default function PreviewPanel({
                         onClick={() => onEditVideo(job)}
                         title={
                           zh
-                            ? "把这条视频载入「视频编辑」做风格转换 / 局部替换 / 换装"
-                            : "Load this video into Video Edit"
+                            ? "把这条视频送入剪辑器继续剪辑"
+                            : "Send this video to the Editor"
                         }
                       >
-                        ✂ {zh ? "编辑此视频" : "Edit video"}
+                        ✂ {zh ? "送剪辑" : "Edit"}
                       </button>
                     )}
                   </>
@@ -478,9 +479,32 @@ function getSourceThumb(job: Job): string | null {
   const m = job.media;
   for (const src of [m.img_url, m.video_url, ...(m.reference_urls ?? [])]) {
     if (!src) continue;
-    const url = src.thumbDataUrl || src.localPath || src.previewUrl;
+    const url = src.thumbDataUrl || normalizeLocalUploadPath(src.localPath) || src.previewUrl;
     if (url && /^(https?:|blob:|data:|\/)/.test(url)) return url;
   }
+  return null;
+}
+
+function isHttpUrl(url: string | undefined | null): url is string {
+  return !!url && /^https?:\/\//i.test(url);
+}
+
+function toAbsoluteAppUrl(url: string): string | null {
+  if (!url.startsWith("/")) return null;
+  try {
+    return new URL(url, window.location.origin).toString();
+  } catch {
+    return null;
+  }
+}
+
+function shareVideoUrl(job: Job): string | null {
+  if (isHttpUrl(job.videoUrl)) return job.videoUrl;
+  if (job.videoUrl) {
+    const absolute = toAbsoluteAppUrl(job.videoUrl);
+    if (absolute) return absolute;
+  }
+  if (job.taskId) return toAbsoluteAppUrl(`/api/videos/${encodeURIComponent(job.taskId)}`);
   return null;
 }
 
@@ -578,10 +602,15 @@ function DoneActions({
       </button>
       <button
         className="btn-ghost"
-        onClick={() =>
-          copy(job.videoUrl!, zh ? "视频 URL 已复制" : "URL copied")
-        }
-        title={zh ? "复制视频直链" : "Copy video URL"}
+        onClick={() => {
+          const url = shareVideoUrl(job);
+          if (!url) {
+            flash(zh ? "暂无可分享地址" : "No shareable URL");
+            return;
+          }
+          void copy(url, zh ? "在线 URL 已复制" : "Online URL copied");
+        }}
+        title={zh ? "复制在线视频地址" : "Copy online video URL"}
       >
         ⎘ {zh ? "复制 URL" : "Copy URL"}
       </button>

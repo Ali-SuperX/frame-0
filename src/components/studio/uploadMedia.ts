@@ -1,6 +1,7 @@
 import type { Job, JobMedia } from "@/lib/store";
 import { apiKeysHeader } from "@/lib/bailian/withUserKeys";
 import { storeLocalFile, readLocalFile } from "@/lib/editor/localFiles";
+import { normalizeLocalUploadPath } from "@/lib/mediaPaths";
 
 /** Map of common extensions → MIME types. Used to repair File objects whose
  *  `.type` is empty (chrome-devtools setInputFiles, some clipboard pastes,
@@ -228,14 +229,51 @@ export async function makeThumb(
 }
 
 /**
- * Upload a single file to OSS via `/api/bailian/upload`, persist the original
+ * SHA-256 hex of a File's raw bytes. This matches the server-side cache key.
+ */
+async function sha256Hex(file: File): Promise<string> {
+  const buf = await file.arrayBuffer();
+  const digest = await crypto.subtle.digest("SHA-256", buf);
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+async function registerUploadedMedia(input: {
+  file: File;
+  sha: string;
+  ossUrl: string;
+  ext?: string;
+  modelName: string;
+}): Promise<string | undefined> {
+  const fd = new FormData();
+  fd.append("sha", input.sha);
+  fd.append("ossUrl", input.ossUrl);
+  fd.append("filename", input.file.name);
+  fd.append("size", String(input.file.size));
+  fd.append("model", input.modelName);
+  if (input.ext) fd.append("ext", input.ext);
+  fd.append("file", input.file, input.file.name);
+  const res = await fetch("/api/bailian/upload/register", {
+    method: "POST",
+    body: fd,
+  });
+  const body = (await res.json().catch(() => ({}))) as {
+    error?: string;
+    localPath?: string;
+  };
+  if (!res.ok) throw new Error(body.error || `register HTTP ${res.status}`);
+  return normalizeLocalUploadPath(body.localPath);
+}
+
+/**
+ * Upload a single file to OSS via browser-direct POST, persist the original
  * bytes to IndexedDB (for reload-proof previews), and generate an inline
  * thumbnail. Returns a fully-populated JobMedia.
  *
- * Shared by MediaPicker (single) and MediaMultiPicker (batch) so the upload
- * pipeline lives in exactly one place.
+ * Shared by MediaPicker (single) and MediaMultiPicker (batch).
  *
- * @throws when the upload request fails.
+ * @throws when the policy request, OSS direct upload, or register request fails.
  */
 export async function uploadMediaFile(
   rawFile: File,
@@ -248,16 +286,54 @@ export async function uploadMediaFile(
   // bug after batch uploads.
   const file = ensureFileType(rawFile);
   const previewUrl = URL.createObjectURL(file);
-  const fd = new FormData();
-  fd.append("file", file);
-  fd.append("model", modelName);
-  const res = await fetch("/api/bailian/upload", {
+  const sha = await sha256Hex(file);
+
+  const policyRes = await fetch("/api/bailian/upload/policy", {
     method: "POST",
-    headers: apiKeysHeader(),
-    body: fd,
+    headers: { ...apiKeysHeader(), "Content-Type": "application/json" },
+    body: JSON.stringify({ sha, filename: file.name, model: modelName }),
   });
-  const j = await res.json();
-  if (!res.ok) throw new Error(j.error || `HTTP ${res.status}`);
+  const p = (await policyRes.json().catch(() => ({}))) as {
+    cached?: boolean;
+    ossUrl?: string;
+    localPath?: string;
+    error?: string;
+    upload_host?: string;
+    fields?: Record<string, string>;
+    safeFilename?: string;
+    ext?: string;
+    mirrorRequired?: boolean;
+    registerRequired?: boolean;
+  };
+  if (!policyRes.ok) throw new Error(p.error || `policy HTTP ${policyRes.status}`);
+
+  let ossUrl: string;
+  let localPath: string | undefined;
+  if (p.cached) {
+    ossUrl = p.ossUrl!;
+    localPath = normalizeLocalUploadPath(p.localPath);
+    if (p.registerRequired || p.mirrorRequired) {
+      localPath =
+        (await registerUploadedMedia({ file, sha, ossUrl, ext: p.ext, modelName })) ??
+        localPath;
+    }
+  } else {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(p.fields ?? {})) fd.append(k, v);
+    if (p.safeFilename) fd.append("file", file, p.safeFilename);
+    else fd.append("file", file);
+    const upRes = await fetch(p.upload_host!, { method: "POST", body: fd });
+    if (!upRes.ok && upRes.status !== 204) {
+      throw new Error(
+        `OSS direct upload failed: ${upRes.status} ${(await upRes.text()).slice(0, 200)}`
+      );
+    }
+    ossUrl = p.ossUrl!;
+    localPath =
+      (await registerUploadedMedia({ file, sha, ossUrl, ext: p.ext, modelName })) ??
+      normalizeLocalUploadPath(p.localPath);
+  }
+
   // Persist original bytes to IndexedDB so the preview survives reloads.
   const localKey = `mp-${Date.now().toString(36)}-${Math.random()
     .toString(36)
@@ -270,12 +346,12 @@ export async function uploadMediaFile(
   const thumbDataUrl = await makeThumb(file);
   return {
     name: file.name,
-    url: j.ossUrl,
+    url: ossUrl,
     previewUrl,
     mime: file.type,
     localKey,
     thumbDataUrl: thumbDataUrl ?? undefined,
-    localPath: j.localPath,
+    localPath,
   };
 }
 
@@ -324,7 +400,7 @@ export async function uploadDataUrlAsMedia(
   const j = await res.json();
   return {
     ossUrl: j.ossUrl as string,
-    localPath: j.localPath as string | undefined,
+    localPath: normalizeLocalUploadPath(j.localPath as string | undefined),
     sha: j.sha as string | undefined,
   };
 }
@@ -365,7 +441,7 @@ async function recoverMediaBlob(m: JobMedia): Promise<Blob | null> {
       /* fall through */
     }
   }
-  for (const src of [m.localPath, m.thumbDataUrl]) {
+  for (const src of [normalizeLocalUploadPath(m.localPath), m.thumbDataUrl]) {
     if (!src) continue;
     try {
       const res = await fetch(src);

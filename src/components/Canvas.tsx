@@ -48,6 +48,7 @@ import { extractKeyFrames } from "@/lib/r2v/videoUtils";
 import { fmtClock } from "./studio/helpers";
 import { pickVoiceByPersona, listVoices } from "@/lib/r2v/ttsVoices";
 import type { Starter } from "@/lib/bailian/starters";
+import { normalizeLocalUploadPath } from "@/lib/mediaPaths";
 import LocaleSwitcher from "./LocaleSwitcher";
 import SettingsModal from "./studio/SettingsModal";
 import AssetPicker from "./studio/AssetPicker";
@@ -71,6 +72,48 @@ const ORCH_LLMS = [
 const PromptLibrary = dynamic(() => import("./studio/PromptLibrary"), { ssr: false });
 
 const NODE_W = 264; // 基准节点宽度(世界坐标)，落点/居中用
+
+function canvasMediaDisplaySrc(media: JobMedia | undefined): string | undefined {
+  if (!media) return undefined;
+  const localPath = normalizeLocalUploadPath(media.localPath);
+  if (localPath && /^(https?:|\/)/.test(localPath)) return localPath;
+  const preview =
+    media.previewUrl && media.previewUrl.startsWith("blob:")
+      ? media.previewUrl
+      : undefined;
+  if (preview) return preview;
+  const thumb =
+    media.thumbDataUrl && /^(data:|https?:)/.test(media.thumbDataUrl)
+      ? media.thumbDataUrl
+      : undefined;
+  if (thumb) return thumb;
+  const url = normalizeLocalUploadPath(media.url);
+  if (url && /^(https?:|data:|\/)/.test(url)) return url;
+  return undefined;
+}
+
+function canvasJobImageDisplaySrc(job: Job | undefined): string | undefined {
+  if (!job) return undefined;
+  const direct = normalizeLocalUploadPath(job.videoUrl);
+  if (direct && /^(https?:|data:|\/|blob:)/.test(direct)) return direct;
+  return canvasMediaDisplaySrc(job.media?.img_url);
+}
+
+function canvasJobImageMedia(job: Job | undefined, name: string): JobMedia | undefined {
+  if (!job || job.status !== "done") return undefined;
+  const media = job.media?.img_url;
+  const url = media?.url || job.videoUrl;
+  if (!url) return undefined;
+  return {
+    ...media,
+    url,
+    name: media?.name || name,
+    mime: media?.mime || job.localMime,
+    localKey: media?.localKey || job.localKey,
+    localPath: media?.localPath || (job.videoUrl?.startsWith("/api/") ? job.videoUrl : undefined),
+  };
+}
+
 /** 各类节点的卡片宽度 —— 输入/对话略宽，回答最宽（读字），与 CSS 对齐。 */
 function nodeWidth(n: CanvasNode): number {
   if (n.w && n.w >= 220) return n.w; // 手动 resize 优先
@@ -193,9 +236,9 @@ function collectUpstreamCharRefs(nodeId: string): { refs: JobMedia[]; charMap: M
   for (const cn of charNodes) {
     const jid = cn.jobId || cn.imageJobId;
     const j = jid ? liveJobs.find((x) => x.id === jid) : undefined;
-    const url = j?.status === "done" ? (j.videoUrl || j.media?.img_url?.url) : undefined;
-    if (url && refs.length < 9) {
-      refs.push({ url, name: `char-${refs.length + 1}.png` });
+    const media = canvasJobImageMedia(j, `char-${refs.length + 1}.png`);
+    if (media && refs.length < 9) {
+      refs.push(media);
       if (cn.title?.trim()) charMap.set(cn.title.trim(), refs.length);
       const nameMatch = cn.text?.match(/name:\s*([^,，;；]+)/i);
       if (nameMatch) charMap.set(nameMatch[1].trim(), refs.length);
@@ -216,8 +259,8 @@ function collectUpstreamPropRefs(nodeId: string): JobMedia[] {
   for (const pn of propNodes) {
     const jid = pn.jobId || pn.imageJobId;
     const j = jid ? liveJobs.find((x) => x.id === jid) : undefined;
-    const url = j?.status === "done" ? (j.videoUrl || j.media?.img_url?.url) : undefined;
-    if (url && refs.length < 3) refs.push({ url, name: `prop-${refs.length + 1}.png` });
+    const media = canvasJobImageMedia(j, `prop-${refs.length + 1}.png`);
+    if (media && refs.length < 3) refs.push(media);
   }
   return refs;
 }
@@ -234,8 +277,8 @@ function collectUpstreamSceneRefs(nodeId: string): JobMedia[] {
   for (const sn of sceneNodes) {
     const jid = sn.jobId || sn.imageJobId;
     const j = jid ? liveJobs.find((x) => x.id === jid) : undefined;
-    const url = j?.status === "done" ? (j.videoUrl || j.media?.img_url?.url) : undefined;
-    if (url && refs.length < 2) refs.push({ url, name: `scene-${refs.length + 1}.png` });
+    const media = canvasJobImageMedia(j, `scene-${refs.length + 1}.png`);
+    if (media && refs.length < 2) refs.push(media);
   }
   return refs;
 }
@@ -1485,19 +1528,26 @@ export default function Canvas({ initialProjectId }: { initialProjectId?: string
   ): Promise<Draft["media"]> {
     const needs = (u?: string) =>
       !!u && (u.startsWith("/api/") || u.startsWith("blob:"));
+    const uploadOne = async (m: JobMedia | undefined): Promise<JobMedia | undefined> => {
+      if (!m || !needs(m.url)) return m;
+      const res = await fetch(m.url);
+      if (!res.ok) throw new Error(`源不可读 (${res.status})`);
+      const blob = await res.blob();
+      const mime = m.mime || blob.type || "application/octet-stream";
+      const ext = mime.split("/")[1]?.split("+")[0] || "bin";
+      const file = new File([blob], m.name || `canvas_src.${ext}`, { type: mime });
+      return uploadMediaFile(file, modelId);
+    };
     const out: Draft["media"] = { ...media };
     const keys = ["img_url", "video_url", "last_frame_url", "first_clip_url"] as const;
     for (const key of keys) {
       const m = out[key];
-      if (m && needs(m.url)) {
-        const res = await fetch(m.url);
-        if (!res.ok) throw new Error(`源不可读 (${res.status})`);
-        const blob = await res.blob();
-        const mime = blob.type || "application/octet-stream";
-        const ext = mime.split("/")[1]?.split("+")[0] || "bin";
-        const file = new File([blob], `canvas_src.${ext}`, { type: mime });
-        out[key] = await uploadMediaFile(file, modelId);
-      }
+      if (m) out[key] = await uploadOne(m);
+    }
+    const arrayKeys = ["reference_urls", "ref_images"] as const;
+    for (const key of arrayKeys) {
+      const arr = out[key];
+      if (arr) out[key] = (await Promise.all(arr.map((m) => uploadOne(m)))).filter(Boolean) as JobMedia[];
     }
     return out;
   }
@@ -1559,17 +1609,20 @@ export default function Canvas({ initialProjectId }: { initialProjectId?: string
       .filter((e) => e.target === node.id)
       .map((e) => cs.nodes.find((n) => n.id === e.source))
       .filter((n): n is CanvasNode => !!n);
-    const doneImageUrl = (n: CanvasNode): string | undefined => {
+    const doneImageMedia = (n: CanvasNode): JobMedia | undefined => {
       const ids = [n.jobId, n.imageJobId].filter(Boolean) as string[];
       for (const id of ids) {
         const j = liveJobs.find((x) => x.id === id);
-        if (j && j.status === "done" && j.videoUrl && isImageMode(j.mode)) return j.videoUrl;
+        if (j && j.status === "done" && isImageMode(j.mode)) {
+          const media = canvasJobImageMedia(j, j.title || "ref.png");
+          if (media) return media;
+        }
       }
       return undefined;
     };
     const upstreamRefs = upstream
-      .map((n) => doneImageUrl(n))
-      .filter((u): u is string => !!u);
+      .map((n) => doneImageMedia(n))
+      .filter((u): u is JobMedia => !!u);
     // 上游描述文本拼入 genPrompt（仅用于 API 调用，不修改存储的 prompt）
     const refDescs = upstream
       .map((n) => {
@@ -1595,12 +1648,23 @@ export default function Canvas({ initialProjectId }: { initialProjectId?: string
       if (refField) {
         const existing = (media[refField.key as keyof typeof media] as JobMedia[] | undefined) ?? [];
         const refMax = (refField as { maxCount?: number }).maxCount ?? 9; // 出图模型参考图上限 → 截断保护，否则角色+场景+道具一多就超限被百炼拒
-        const merged = [...existing, ...upstreamRefs.map((url) => ({ url }))].slice(0, refMax);
+        const merged = [...existing, ...upstreamRefs].slice(0, refMax);
         genMedia = { ...media, [refField.key]: merged };
         flash(zh ? `已注入 ${Math.max(0, merged.length - existing.length)} 张上游参考图 ✦` : `Injected refs ✦`);
       } else if (frameField && !media[frameField.key as keyof typeof media]) {
-        genMedia = { ...media, [frameField.key]: { url: upstreamRefs[0] } };
+        genMedia = { ...media, [frameField.key]: upstreamRefs[0] };
         flash(zh ? "已用上游图作首帧 ✦" : "Used upstream as first frame ✦");
+      }
+    }
+    if (genMedia !== media) {
+      try {
+        genMedia = await ensureMediaUploaded(genMedia, d.modelId);
+      } catch (e) {
+        flash(
+          (zh ? "参考图准备失败：" : "Reference failed: ") +
+            (e instanceof Error ? e.message : String(e))
+        );
+        return null;
       }
     }
     // ── drama 编排生成节点：出图 → I2V 两步 pipeline ──
@@ -1616,7 +1680,17 @@ export default function Canvas({ initialProjectId }: { initialProjectId?: string
       const imgMode = imgEditSpec ? ("i2i" as const) : d.mode;
       const imgParams = imgEditSpec ? { ...imgEditSpec.defaults, size: (d.params.size as string) || "720*1280" } : d.params;
       const editMax = (imgEditSpec?.fields?.find((f) => f.key === "ref_images") as { maxCount?: number } | undefined)?.maxCount ?? 3;
-      const imgMedia = imgEditSpec ? { ...genMedia, ref_images: [...((media.ref_images as JobMedia[] | undefined) ?? []), ...imgRefs].slice(0, editMax) } : genMedia; // 合并节点预置的手动参考图，不被上游立绘整体覆盖丢失
+      const rawImgMedia = imgEditSpec ? { ...genMedia, ref_images: [...((genMedia.ref_images as JobMedia[] | undefined) ?? []), ...imgRefs].slice(0, editMax) } : genMedia; // 合并节点预置的手动参考图，不被上游立绘整体覆盖丢失
+      let imgMedia = rawImgMedia;
+      try {
+        imgMedia = await ensureMediaUploaded(rawImgMedia, imgModelId);
+      } catch (e) {
+        flash(
+          (zh ? "参考图准备失败：" : "Reference failed: ") +
+            (e instanceof Error ? e.message : String(e))
+        );
+        return null;
+      }
       const imgPrompt = imgEditSpec ? replaceCharNames(genPrompt, imgCharMap) : genPrompt;
       const imgJobId = createJobFromPayload({
         mode: imgMode,
@@ -1703,11 +1777,21 @@ export default function Canvas({ initialProjectId }: { initialProjectId?: string
       // 视频 prompt 用【纯分镜剧本】(各镜不同)而非含参考前缀的 genPrompt —— 参考靠 reference_urls(角色/场景/道具图)锁定。
       //   否则 cleanShotPrompt 对含括号的参考描述清洗不净 → 各镜开头残留同一段角色/场景/道具描述、看着全一样。
       const vid = buildShotVideoJob(node, imageUrl, Number(d.params.duration) || 5, d.prompt || "", { ...(opts?.i2vModelId ? { i2vModelId: opts.i2vModelId } : {}), ...(opts?.rawVideoPrompt ? { rawPrompt: opts.rawVideoPrompt } : {}), ...(bridgeFrameUrl ? { bridgeFrameUrl } : {}) });
+      let vidMedia = vid.media;
+      try {
+        vidMedia = await ensureMediaUploaded(vid.media, vid.modelId);
+      } catch (e) {
+        flash(
+          (zh ? "参考图准备失败：" : "Reference failed: ") +
+            (e instanceof Error ? e.message : String(e))
+        );
+        return imgJobId;
+      }
       const vidJobId = createJobFromPayload({
         mode: vid.mode,
         modelId: vid.modelId,
         params: vid.params,
-        media: vid.media,
+        media: vidMedia,
         prompt: vid.prompt,
         title: `🎬 ${(d.prompt || "Drama").slice(0, 40)} · 视频`,
       });
@@ -1726,7 +1810,7 @@ export default function Canvas({ initialProjectId }: { initialProjectId?: string
         const { taskId } = await submitJobRequest({
           modelId: vid.modelId,
           params: vid.params,
-          media: vid.media,
+          media: vidMedia,
           prompt: vid.prompt,
         });
         if (taskId) {
@@ -2712,7 +2796,7 @@ export default function Canvas({ initialProjectId }: { initialProjectId?: string
         prompt: node.text || node.title || "",
         title: `🔒 ${node.title || (zh ? "参考图" : "ref")}`,
       });
-      setJobStatus(jid, { status: "done", videoUrl: m.url, completedAt: Date.now() });
+      setJobStatus(jid, { status: "done", videoUrl: canvasMediaDisplaySrc(m), completedAt: Date.now() });
       setJobCategory(jid, node.kind === "character" ? "character" : node.kind === "prop" ? "prop" : "scene");
       if (node.title) setJobTags(jid, [node.title]);
       updateNode(node.id, { imageJobId: jid, jobId: jid, locked: true });
@@ -3021,7 +3105,7 @@ export default function Canvas({ initialProjectId }: { initialProjectId?: string
       const videoJob = vc.videoJobId ? liveJobs.find((j) => j.id === vc.videoJobId) : undefined;
       const imageJob = vc.imageJobId ? liveJobs.find((j) => j.id === vc.imageJobId) : undefined;
       const videoUrl = videoJob?.status === "done" ? videoJob.videoUrl : undefined;
-      const imageUrl = imageJob?.status === "done" ? (imageJob.videoUrl || imageJob.media?.img_url?.url) : undefined;
+      const imageUrl = imageJob?.status === "done" ? canvasJobImageDisplaySrc(imageJob) : undefined;
 
       // 缺画面(视频+静帧都没有) → 跳过且【不推进游标】，保持 a1 配音与 v1 拼接对齐；计数防静默丢
       if (!videoUrl && !imageUrl) { skipped++; if (vc.voiceJobId) droppedVoice++; continue; }
@@ -4451,6 +4535,7 @@ function NodeCardImpl({
   /* ── character / scene：可复用资产卡（纯内容 —— 生成/重画在底部对话框） ── */
   if (kind === "character" || kind === "scene" || kind === "prop") {
     const busy = status === "running" || status === "submitting";
+    const assetSrc = canvasJobImageDisplaySrc(job);
     return (
       <article ref={rootRef as React.Ref<HTMLElement>} className={`cv-node cv-node-asset${selected ? " cv-node-sel" : ""}${isDone ? " done" : ""}${status === "error" ? " cv-node-error" : ""}${nodeExtraCls}`} data-kind={kind} style={{ left: px, top: py, width, height: node.h }} data-node-id={node.id} data-h={node.h ? "1" : undefined} onPointerDown={onDragHandle} onClick={onSelect} onWheel={(e) => e.stopPropagation()}>
         {ports}
@@ -4462,7 +4547,7 @@ function NodeCardImpl({
         </header>
         <div className="cv-asset-body">
           <div className="cv-asset-img">
-            {isDone && job?.videoUrl ? <img src={job.videoUrl} alt={node.title ?? ""} />
+            {isDone && assetSrc ? <img src={assetSrc} alt={node.title ?? ""} />
               : busy ? <div className="cv-asset-ph">{zh ? "生成中…" : "…"}</div>
                 : <div className="cv-asset-ph"><NodeKindIcon kind={kind} size={40} /></div>}
             {onUploadRef && (
@@ -4548,7 +4633,7 @@ function NodeCardImpl({
               <div className="cv-node-result">
                 {isImageMode(job.mode) ? (
                   /* eslint-disable-next-line @next/next/no-img-element */
-                  <img src={job.videoUrl} alt={job.title} />
+                  <img src={canvasJobImageDisplaySrc(job) || job.videoUrl} alt={job.title} />
                 ) : (
                   <video
                     src={`${job.videoUrl}#t=0.1`}
@@ -4669,9 +4754,9 @@ function NodeCardImpl({
           ) : isDrama && (imageJob || videoJob) ? (
             /* 短剧三段流水线：出图 → 出视频 → 配音 */
             <div className="cv-node-developing cv-drama-pipeline">
-              {imageJob?.status === "done" && imageJob.videoUrl && (
+              {imageJob?.status === "done" && canvasJobImageDisplaySrc(imageJob) && (
                 /* eslint-disable-next-line @next/next/no-img-element */
-                <img className="cv-drama-thumb" src={imageJob.videoUrl} alt="" />
+                <img className="cv-drama-thumb" src={canvasJobImageDisplaySrc(imageJob)} alt="" />
               )}
               <div className="cv-drama-steps">
                 <span className={`cv-ds${imageJob?.status === "done" ? " ok" : imageJob?.status === "error" ? " err" : ""}`}>
@@ -4711,10 +4796,10 @@ function NodeCardImpl({
         模型/参数/媒体/运行 全在底部对话框（点选即联动） ── */
   const hasPromptField = (spec?.fields ?? []).some((f) => f.key === "prompt");
   const mediaThumbs: { url?: string; label: string }[] = [];
-  if (d.media.img_url?.url) mediaThumbs.push({ url: d.media.img_url.previewUrl || d.media.img_url.url, label: zh ? "首帧" : "frame" });
+  if (d.media.img_url?.url) mediaThumbs.push({ url: canvasMediaDisplaySrc(d.media.img_url), label: zh ? "首帧" : "frame" });
   if (d.media.video_url?.url) mediaThumbs.push({ label: zh ? "视频" : "video" });
   (d.media.reference_urls ?? d.media.ref_images ?? []).forEach((r, i) =>
-    mediaThumbs.push({ url: r.previewUrl || r.url, label: `${zh ? "参考" : "ref"}${i + 1}` })
+    mediaThumbs.push({ url: canvasMediaDisplaySrc(r), label: `${zh ? "参考" : "ref"}${i + 1}` })
   );
 
   return (
@@ -4859,4 +4944,3 @@ function GroupFrame({
     </div>
   );
 }
-

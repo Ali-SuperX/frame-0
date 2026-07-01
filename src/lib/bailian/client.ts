@@ -209,12 +209,11 @@ function sanitizeOssFilename(name: string): string {
   return `${safeBase}.${ext}`;
 }
 
-export async function uploadToOss(
-  buffer: Buffer | Uint8Array,
+export async function getUploadPolicy(
   filename: string,
   modelName: string,
   userKeys?: Record<string, string>
-): Promise<string> {
+): Promise<{ data: UploadPolicy; safeFilename: string; key: string }> {
   const policyRes = await fetch(
     `${UPLOAD_POLICY_URL}?action=getPolicy&model=${encodeURIComponent(modelName)}`,
     {
@@ -230,7 +229,16 @@ export async function uploadToOss(
   const data = (await policyRes.json()).data as UploadPolicy;
   const safeFilename = sanitizeOssFilename(filename);
   const key = `${data.upload_dir}/${safeFilename}`;
+  return { data, safeFilename, key };
+}
 
+export async function uploadToOss(
+  buffer: Buffer | Uint8Array,
+  filename: string,
+  modelName: string,
+  userKeys?: Record<string, string>
+): Promise<string> {
+  const { data, safeFilename, key } = await getUploadPolicy(filename, modelName, userKeys);
   const form = new FormData();
   form.append("OSSAccessKeyId", data.oss_access_key_id);
   form.append("Signature", data.signature);

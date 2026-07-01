@@ -7,12 +7,15 @@ import { toast as pushToast, confirmDialog } from "@/components/ui/Dialog";
 import { useLocale } from "next-intl";
 import {
   useStudioStore,
+  DEFAULT_TRACKS,
   type Job,
   type JobMedia,
+  type EditorProject,
 } from "@/lib/store";
 import { useR2VStore } from "@/lib/r2v/projectStore";
 import type { Reference } from "@/lib/r2v/schema";
 import { readLocalFile } from "@/lib/editor/localFiles";
+import { probeDuration } from "@/lib/editor/renderProject";
 import {
   MODELS,
   getModel,
@@ -27,6 +30,7 @@ import LazyVideoThumb from "./studio/LazyVideoThumb";
 import JobImage from "./studio/JobImage";
 import { useRouter } from "next/navigation";
 import { uploadMediaFile } from "./studio/uploadMedia";
+import { normalizeLocalUploadPath } from "@/lib/mediaPaths";
 import dynamic from "next/dynamic";
 
 // 首屏核心路径只需要 job 列表 + prompt 输入 —— 以下组件在用户与特定区域
@@ -79,6 +83,30 @@ import { estimateCostFen, applyDiscount } from "@/lib/bailian/cost";
 import "@/styles/frame.css";
 import "@/styles/studio-composer.css";
 
+function editorAspectFromRatio(ratio: unknown): EditorProject["aspect"] {
+  if (ratio === "9:16" || ratio === "1:1" || ratio === "4:3") return ratio;
+  return "16:9";
+}
+
+function studioMediaThumbSrc(media: JobMedia | undefined): string | undefined {
+  if (!media) return undefined;
+  const thumb =
+    media.thumbDataUrl && /^(data:|https?:)/.test(media.thumbDataUrl)
+      ? media.thumbDataUrl
+      : undefined;
+  if (thumb) return thumb;
+  const localPath = normalizeLocalUploadPath(media.localPath);
+  if (localPath && /^(https?:|\/)/.test(localPath)) return localPath;
+  const preview =
+    media.previewUrl && /^(blob:|https?:|data:)/.test(media.previewUrl)
+      ? media.previewUrl
+      : undefined;
+  if (preview) return preview;
+  const url = normalizeLocalUploadPath(media.url);
+  if (url && /^(https?:|data:|\/)/.test(url)) return url;
+  return undefined;
+}
+
 export default function Studio({ initialJobId }: { initialJobId?: string }) {
   const locale = useLocale();
   const zh = locale === "zh";
@@ -106,6 +134,7 @@ export default function Studio({ initialJobId }: { initialJobId?: string }) {
   const selectJob = useStudioStore((s) => s.selectJob);
   const togglePublish = useStudioStore((s) => s.togglePublish);
   const toggleCompare = useStudioStore((s) => s.toggleCompare);
+  const editorLoadProject = useStudioStore((s) => s.editorLoadProject);
 
   const activeJob = useMemo(
     () => jobs.find((j) => j.id === activeJobId),
@@ -246,6 +275,7 @@ export default function Studio({ initialJobId }: { initialJobId?: string }) {
    *  3 处入口（nav / params-pane / handleSendToDirector）统一走 router.push. */
   const router = useRouter();
   const directorHref = zh ? "/director" : "/en/director";
+  const editorHref = zh ? "/editor" : "/en/editor";
 
   /** Pane switcher for small screens — `all` means the 3-col grid (default on desktop). */
   const [activePane, setActivePane] = useState<"jobs" | "preview">("preview");
@@ -552,7 +582,7 @@ export default function Studio({ initialJobId }: { initialJobId?: string }) {
    * The draft prompt is cleared — ve's prompt is an edit instruction, not the
    * source video's generation prompt.
    */
-  async function handleVideoToEdit(job: Job) {
+  async function handleVideoToVideoEdit(job: Job) {
     if (!job.videoUrl) return;
     const ve = defaultModelForMode("ve");
     setModelId(ve.id);
@@ -588,6 +618,75 @@ export default function Studio({ initialJobId }: { initialJobId?: string }) {
     }
   }
 
+  /** Send a finished Studio result to the timeline editor as a one-clip project. */
+  async function handleVideoToEditor(job: Job) {
+    if (!job.videoUrl) return;
+    flashToast(zh ? "正在送入剪辑器…" : "Sending to Editor…");
+    let playableUrl = job.videoUrl;
+    const localKey = job.localKey;
+    let localMime = job.localMime;
+    let objectUrl: string | null = null;
+
+    try {
+      if (localKey && !localKey.startsWith("disk:")) {
+        const blob = await readLocalFile(localKey);
+        if (blob) {
+          localMime = localMime || blob.type || "video/mp4";
+          const typed = localMime ? new Blob([blob], { type: localMime }) : blob;
+          objectUrl = URL.createObjectURL(typed);
+          playableUrl = objectUrl;
+        }
+      }
+
+      const paramDuration = Number(job.params.duration);
+      const duration =
+        (Number.isFinite(paramDuration) && paramDuration > 0
+          ? paramDuration
+          : null) ?? (await probeDuration(playableUrl));
+
+      const clipTitle = job.title || job.prompt?.slice(0, 60) || "Studio video";
+      const editorProject: EditorProject = {
+        id: `studio-edit-${job.id}-${Date.now()}`,
+        name: clipTitle,
+        clips: [
+          {
+            id: `clip-${job.id}`,
+            sourceUrl: playableUrl,
+            sourceTitle: clipTitle,
+            duration,
+            in: 0,
+            out: duration,
+            volume: 1,
+            speed: 1,
+            mediaType: "video",
+            trackId: "v1",
+            startSec: 0,
+            localKey: localKey && !localKey.startsWith("disk:") ? localKey : undefined,
+            localMime,
+          },
+        ],
+        aspect: editorAspectFromRatio(job.params.ratio),
+        crossfadeSec: 0,
+        transitionType: "fade",
+        exportHeight: job.params.resolution === "720P" ? 720 : 1080,
+        tracks: DEFAULT_TRACKS,
+        updatedAt: Date.now(),
+      };
+
+      editorLoadProject(editorProject);
+      router.push(editorHref);
+      flashToast(zh ? "已送入剪辑器 ✂" : "Sent to Editor ✂");
+    } catch (e) {
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("[handleVideoToEditor] failed:", e);
+      flashToast(
+        (zh ? "送入剪辑器失败：" : "Failed to send to Editor: ") +
+          msg.slice(0, 100)
+      );
+    }
+  }
+
   /* 资产库「送去工坊」落地：跳转到 /studio 后消费一次性 pendingReuse 信号，
      执行对应复用 handler（rerun 载参数 / i2v 设首帧 / ve 设源视频）。 */
   useEffect(() => {
@@ -598,7 +697,7 @@ export default function Studio({ initialJobId }: { initialJobId?: string }) {
     if (!job) return;
     if (action === "rerun") loadJobIntoDraft(job.id);
     else if (action === "i2v") void handleImageToVideo(job);
-    else if (action === "ve") void handleVideoToEdit(job);
+    else if (action === "ve") void handleVideoToVideoEdit(job);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingReuse]);
 
@@ -1139,9 +1238,9 @@ export default function Studio({ initialJobId }: { initialJobId?: string }) {
                       ) : (
                         <LazyVideoThumb src={j.videoUrl} />
                       )
-                    ) : j.media.img_url?.previewUrl ? (
+                    ) : studioMediaThumbSrc(j.media.img_url) ? (
                       /* eslint-disable-next-line @next/next/no-img-element */
-                      <img src={j.media.img_url.previewUrl} alt="" />
+                      <img src={studioMediaThumbSrc(j.media.img_url)} alt="" />
                     ) : (
                       <div className="job-thumb-ph">
                         {j.status === "running" || j.status === "submitting" ? (
@@ -1257,7 +1356,7 @@ export default function Studio({ initialJobId }: { initialJobId?: string }) {
             onOpenLibrary={() => setLibraryOpen(true)}
             onSendToDirector={handleSendToDirector}
             onImageToVideo={handleImageToVideo}
-            onEditVideo={handleVideoToEdit}
+            onEditVideo={handleVideoToEditor}
             theater={theater}
             onToggleTheater={() => setTheater((v) => !v)}
           />
