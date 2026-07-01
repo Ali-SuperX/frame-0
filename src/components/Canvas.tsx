@@ -4801,20 +4801,24 @@ function NodeCardImpl({
               )}
             </>
           ) : status === "error" ? (
-            <div className="cv-node-err">
-              <span>✗ {zh ? "生成失败" : "Failed"}</span>
-              <span className="cv-node-err-msg">{job.errorMessage?.slice(0, 80)}</span>
-              <button type="button" className="cv-br" disabled={retrying} onClick={() => void retryGenerate()} onPointerDown={(e) => e.stopPropagation()}>
-                {retrying ? (
-                  <>
-                    <span className="cv-spinner cv-spinner-sm" />
-                    {zh ? "重试中…" : "Retrying…"}
-                  </>
-                ) : (
-                  <>↻ {zh ? "重试" : "Retry"}</>
-                )}
-              </button>
-            </div>
+            <>
+              <div className="cv-node-error-pop" role="status" aria-live="polite" title={job.errorMessage || ""} onPointerDown={(e) => e.stopPropagation()}>
+                <strong>✗ {zh ? "生成失败" : "Failed"}</strong>
+                {job.errorMessage && <span>{job.errorMessage}</span>}
+              </div>
+              <div className="cv-node-err">
+                <button type="button" className="cv-br" disabled={retrying} onClick={() => void retryGenerate()} onPointerDown={(e) => e.stopPropagation()}>
+                  {retrying ? (
+                    <>
+                      <span className="cv-spinner cv-spinner-sm" />
+                      {zh ? "重试中…" : "Retrying…"}
+                    </>
+                  ) : (
+                    <>↻ {zh ? "重试" : "Retry"}</>
+                  )}
+                </button>
+              </div>
+            </>
           ) : isDrama && (imageJob || videoJob) ? (
             /* 短剧三段流水线：出图 → 出视频 → 配音 */
             <div className="cv-node-developing cv-drama-pipeline">

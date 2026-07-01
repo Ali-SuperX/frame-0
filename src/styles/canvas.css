@@ -704,6 +704,8 @@ body.cv-grabbing * {
   75% { translate: -1px 0; }
 }
 .cv-node.cv-node-error {
+  z-index: 8;
+  overflow: visible;
   border-color: hsl(0 70% 50% / 0.6);
   box-shadow: 0 0 12px hsl(0 70% 45% / 0.2);
 }
@@ -2006,15 +2008,47 @@ body.cv-grabbing * {
   flex-direction: column;
   gap: 6px;
   min-height: 80px;
-  justify-content: center;
+  justify-content: flex-end;
   color: var(--red, #c44);
   font-size: 12px;
+  padding-top: 72px;
 }
-.cv-node-err-msg {
+.cv-node-err .cv-br {
+  width: 100%;
+  justify-content: center;
+}
+.cv-node-error-pop {
+  position: absolute;
+  top: 50px;
+  right: 10px;
+  z-index: 12;
+  display: grid;
+  gap: 5px;
+  width: min(320px, calc(100% - 20px));
+  max-height: 118px;
+  padding: 8px 10px;
+  border: 1px solid hsl(0 70% 56% / 0.45);
+  border-radius: 8px;
+  background: color-mix(in oklab, var(--ink-1) 92%, hsl(0 72% 38%) 8%);
+  box-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.45),
+    0 0 0 1px color-mix(in oklab, var(--paper) 5%, transparent);
+  pointer-events: auto;
+}
+.cv-node-error-pop strong {
+  color: var(--red, #e55);
+  font-size: 12px;
+  line-height: 1.2;
+}
+.cv-node-error-pop span {
+  min-width: 0;
+  max-height: 76px;
+  overflow: auto;
   font-family: var(--mono);
   font-size: 9.5px;
   color: var(--paper-mute);
   line-height: 1.4;
+  user-select: text;
 }
 
 /* ── 空态「开始」首屏 —— 双路径，短剧一键开跑 ── */
@@ -2290,13 +2324,13 @@ body.cv-grabbing * {
 
 .cv-toast {
   position: fixed;
-  bottom: 84px;
-  left: 50%;
+  top: max(16px, env(safe-area-inset-top));
+  right: max(16px, env(safe-area-inset-right));
   z-index: 40;
   background: var(--ink-1);
   color: var(--paper);
   border: 1px solid var(--edge-strong, var(--line));
-  border-radius: 999px;
+  border-radius: 12px;
   padding: 10px 18px;
   font-size: 13px;
   box-shadow: var(--shadow-3);
@@ -2304,15 +2338,19 @@ body.cv-grabbing * {
   align-items: center;
   gap: 14px;
   width: max-content;
-  max-width: min(86vw, 520px);
+  max-width: min(86vw, 420px);
   opacity: 0;
-  transform: translateX(-50%) translateY(10px);
+  transform: translateY(-8px);
   transition: opacity 0.2s ease, transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
   pointer-events: none;
 }
 .cv-toast.show {
   opacity: 1;
-  transform: translateX(-50%) translateY(0);
+  transform: translateY(0);
+}
+.cv-toast > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 /* 撤销按钮 —— 父 toast 是 pointer-events:none，按钮重新启用 auto 才可点 */
 .cv-toast-undo {
@@ -2332,7 +2370,7 @@ body.cv-grabbing * {
   background: color-mix(in oklab, var(--accent) 34%, transparent);
 }
 @media (prefers-reduced-motion: reduce) {
-  .cv-toast { transition: opacity 0.2s ease; transform: translateX(-50%); }
+  .cv-toast { transition: opacity 0.2s ease; transform: none; }
 }
 
 
