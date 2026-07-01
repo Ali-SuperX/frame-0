@@ -3,7 +3,7 @@
 /**
  * DramaDock —— 画布顶部「剧组六步导航」。
  *
- * 短剧自定义分步：剧本 → 分镜 → 角色场景(含出图) → 视频 → 配音 → 成片。
+ * 短剧自定义分步：剧本 → 分镜 → 角色场景(含出图) → 视频 → 成片。
  * 每一步显示状态(done / n·m)，当前该做的步高亮引导；点开一步的迷你面板，既能让
  * AI 辅助生成、也能调参数手动介入。平台把六个环节衔接好，用户逐步输入、逐步把控。
  */
@@ -13,6 +13,7 @@ import { useStudioStore } from "@/lib/store";
 import type { CanvasNode } from "@/lib/canvasStore";
 
 export type DockStage = "script" | "shots" | "assets" | "i2v" | "voice" | "edit";
+const DRAMA_VOICE_ENABLED = false;
 
 export type EditExportCfg = {
   aspect: "16:9" | "9:16" | "1:1";
@@ -119,12 +120,14 @@ export default function DramaDock({
     { key: "shots", zh: "分镜", en: "Shots", done: hasShots, n: shots.length },
     { key: "assets", zh: "角色场景", en: "Cast", done: hasAssets, n: assets.length },
     { key: "i2v", zh: "视频", en: "Video", done: i2vComplete, n: stat.vidDone, total: shots.length },
-    { key: "voice", zh: "配音", en: "Voice", done: voiceComplete, n: stat.voiced, total: stat.withLines },
+    ...(DRAMA_VOICE_ENABLED ? [{ key: "voice" as const, zh: "配音", en: "Voice", done: voiceComplete, n: stat.voiced, total: stat.withLines }] : []),
     { key: "edit", zh: "成片", en: "Cut", done: false },
   ];
 
   // 当前该做的「必经步」（assets 可选，不计入）→ 高亮引导
-  const necessary: DockStage[] = ["script", "shots", "assets", "i2v", "voice", "edit"];
+  const necessary: DockStage[] = DRAMA_VOICE_ENABLED
+    ? ["script", "shots", "assets", "i2v", "voice", "edit"]
+    : ["script", "shots", "assets", "i2v", "edit"];
   const current = necessary.find((k) => !stages.find((s) => s.key === k)!.done) ?? "edit";
 
   return (
@@ -172,7 +175,7 @@ export default function DramaDock({
   );
 }
 
-// 短剧坞六步的线性图标 —— 与画布节点徽标(NodeKindIcon)同款风格(viewBox 16 / currentColor / 1.5)，
+// 短剧坞线性图标 —— 与画布节点徽标(NodeKindIcon)同款风格(viewBox 16 / currentColor / 1.5)，
 //   取代原 emoji(📝🎬👤▶🔊✂)，避免两套图标语言并存 + emoji 跨平台字形抖动
 function DockIcon({ kind, size = 14 }: { kind: DockStage; size?: number }) {
   const c = { width: size, height: size, viewBox: "0 0 16 16", fill: "none", stroke: "currentColor", strokeWidth: 1.5, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };

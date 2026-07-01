@@ -19,10 +19,17 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type { Draft, JobMedia } from "./store";
 
-/** 持久化前剥离 blob: 预览 —— 跨 session 失效，留着会让媒体框裂图 + 报
- *  ERR_FILE_NOT_FOUND。保留 url(OSS / api-uploads，刷新后仍可加载)。 */
+/** 持久化前剥离浏览器临时预览与 base64 缩略图。
+ *  画布项目保存在 localStorage + 云端项目表，必须保持轻量。预览统一走
+ *  localPath / url / localKey 这些稳定引用，避免大画布触发 localStorage 配额。 */
 function stripCanvasMedia(media: Draft["media"]): Draft["media"] {
-  const strip = (m: JobMedia) => ({ ...m, previewUrl: undefined });
+  const strip = (m: JobMedia) => ({
+    name: m.name,
+    url: m.url,
+    mime: m.mime,
+    localKey: m.localKey,
+    localPath: m.localPath,
+  });
   const out: Draft["media"] = { ...media };
   (["img_url", "last_frame_url", "first_clip_url", "audio_url", "video_url"] as const).forEach(
     (k) => {
@@ -117,6 +124,22 @@ export type CanvasProject = {
   updatedAt: number;
 };
 
+export function prepareCanvasProjectForStorage(project: CanvasProject): CanvasProject {
+  return {
+    ...project,
+    groups: project.groups ?? [],
+    nodes: project.nodes.map((n) => ({
+      ...n,
+      draft: { ...n.draft, media: stripCanvasMedia(n.draft.media) },
+    })),
+    edges: project.edges ?? [],
+  };
+}
+
+export function prepareCanvasProjectsForStorage(projects: CanvasProject[]): CanvasProject[] {
+  return projects.map(prepareCanvasProjectForStorage);
+}
+
 let _seq = 0;
 function cid(prefix: string): string {
   _seq += 1;
@@ -170,6 +193,8 @@ type CanvasState = {
   switchProject: (id: string) => void;
   renameProject: (id: string, name: string) => void;
   deleteProject: (id: string) => void;
+  /** 从云端恢复 / 合并画布项目。activate=true 时立即切到该项目。 */
+  importProject: (project: CanvasProject, activate?: boolean) => void;
 };
 
 export const useCanvasStore = create<CanvasState>()(
@@ -330,6 +355,24 @@ export const useCanvasStore = create<CanvasState>()(
             set({ projects: next });
           }
         },
+
+        importProject: (project, activate) => {
+          const clean = prepareCanvasProjectForStorage(project);
+          const existing = get().projects;
+          const idx = existing.findIndex((p) => p.id === clean.id);
+          const projects = existing.slice();
+          if (idx >= 0) projects[idx] = clean;
+          else projects.push(clean);
+          const activeId = activate ? clean.id : get().activeId;
+          const active = projects.find((p) => p.id === activeId) || projects[0];
+          set({
+            projects,
+            activeId: active.id,
+            nodes: active.nodes,
+            edges: active.edges,
+            groups: active.groups ?? [],
+          });
+        },
       };
     },
     {
@@ -341,13 +384,7 @@ export const useCanvasStore = create<CanvasState>()(
       // 由 merge 从活动项目重建。每个项目的节点剥离 blob 预览(保留 url)。
       partialize: (s) => ({
         activeId: s.activeId,
-        projects: s.projects.map((proj) => ({
-          ...proj,
-          nodes: proj.nodes.map((n) => ({
-            ...n,
-            draft: { ...n.draft, media: stripCanvasMedia(n.draft.media) },
-          })),
-        })),
+        projects: prepareCanvasProjectsForStorage(s.projects),
       }),
       // v0(单一 {nodes,edges}) → v1(projects[])：把旧画布包成「默认画布」。
       migrate: (persisted, version) => {

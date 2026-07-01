@@ -360,7 +360,6 @@ const DRAMA_STAGE_HINT: Record<string, { zh: string; en: string; tip: string; ti
   assets: { zh: "角色场景", en: "Cast", tip: "提取并锁定角色一致性", tipEn: "Extract & lock character consistency" },
   design: { zh: "出图", en: "Image", tip: "顶部坞批量为分镜/资产出静帧", tipEn: "Batch images via the top dock" },
   i2v: { zh: "视频", en: "Video", tip: "已出图的分镜逐个转视频", tipEn: "Turn stills into video" },
-  voice: { zh: "配音", en: "Voice", tip: "有台词的镜头批量配音", tipEn: "Batch voiceover for lines" },
   edit: { zh: "成片", en: "Cut", tip: "按顺序合成导出成片", tipEn: "Compose & export the cut" },
 };
 const CHAT_LLMS = [

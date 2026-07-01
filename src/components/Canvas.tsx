@@ -37,18 +37,20 @@ import {
 import { submitJobRequest } from "@/lib/bailian/submitJob";
 import { uploadMediaFile, uploadDataUrlAsMedia } from "./studio/uploadMedia";
 import { useJobPolling } from "@/lib/bailian/useJobPolling";
+import { useStateBackup } from "@/lib/bailian/useStateBackup";
 import { useLocalJobRehydration } from "@/lib/bailian/useLocalJobRehydration";
-import { useCanvasStore, type CanvasNode, type CanvasNodeKind, type CanvasGroup } from "@/lib/canvasStore";
+import { useCanvasStore, prepareCanvasProjectForStorage, type CanvasNode, type CanvasNodeKind, type CanvasGroup, type CanvasProject } from "@/lib/canvasStore";
 import { orchestrateGraph, orchestrateScript, orchestrateNextEpisode, orchestrateShots, orchestrateAssets, rewriteScript, rewriteShotImagePrompt, setOrchestratorSignal, layoutByDepth, type OrchMode } from "@/lib/canvas/orchestrate";
 import { streamChat, collectChatMessages } from "@/lib/canvas/chat";
 import CanvasComposer, { type ComposerApi, type ComposerMode } from "./canvas/CanvasComposer";
 import DramaDock, { type DockStage, type EditExportCfg } from "./canvas/DramaDock";
+import { useAuth } from "./AuthProvider";
 import { prepareDirectorFromJob } from "@/lib/r2v/sendToDirector";
 import { extractKeyFrames } from "@/lib/r2v/videoUtils";
 import { fmtClock } from "./studio/helpers";
 import { pickVoiceByPersona, listVoices } from "@/lib/r2v/ttsVoices";
-import type { Starter } from "@/lib/bailian/starters";
 import { normalizeLocalUploadPath } from "@/lib/mediaPaths";
+import type { Starter } from "@/lib/bailian/starters";
 import LocaleSwitcher from "./LocaleSwitcher";
 import SettingsModal from "./studio/SettingsModal";
 import AssetPicker from "./studio/AssetPicker";
@@ -72,6 +74,108 @@ const ORCH_LLMS = [
 const PromptLibrary = dynamic(() => import("./studio/PromptLibrary"), { ssr: false });
 
 const NODE_W = 264; // 基准节点宽度(世界坐标)，落点/居中用
+const DRAMA_VOICE_ENABLED = false; // TTS 阶段当前不稳定，先从短剧主流程隐藏并跳过。
+
+type CanvasCloudData = { version?: number; canvasProject?: CanvasProject };
+type CanvasCloudRow = {
+  id: string;
+  name?: string;
+  createdAt?: number;
+  updatedAt?: number;
+  data?: CanvasCloudData | null;
+};
+
+function coerceCloudCanvasProject(row: CanvasCloudRow): CanvasProject | null {
+  const raw = row.data?.canvasProject;
+  if (!raw || typeof raw !== "object" || !Array.isArray(raw.nodes) || !Array.isArray(raw.edges)) return null;
+  return prepareCanvasProjectForStorage({
+    ...raw,
+    id: row.id || raw.id,
+    name: row.name || raw.name || "未命名画布",
+    nodes: raw.nodes,
+    edges: raw.edges,
+    groups: Array.isArray(raw.groups) ? raw.groups : [],
+    createdAt: typeof raw.createdAt === "number" ? raw.createdAt : row.createdAt ?? Date.now(),
+    updatedAt: typeof row.updatedAt === "number" ? row.updatedAt : raw.updatedAt ?? Date.now(),
+  });
+}
+
+async function ensureCanvasOrgId(): Promise<string | null> {
+  const run = async () => {
+    const st = useStudioStore.getState();
+    if (st.currentOrgId) return st.currentOrgId;
+    await st.loadOrgs();
+    return useStudioStore.getState().currentOrgId;
+  };
+  if (useStudioStore.persist.hasHydrated()) return run();
+  await new Promise<void>((resolve) => {
+    const off = useStudioStore.persist.onFinishHydration(() => {
+      off();
+      resolve();
+    });
+  });
+  return run();
+}
+
+async function fetchCloudCanvasProject(id: string): Promise<CanvasProject | null> {
+  const res = await fetch(`/api/canvas-projects/${encodeURIComponent(id)}`, { cache: "no-store" });
+  if (!res.ok) return null;
+  const row = (await res.json().catch(() => null)) as CanvasCloudRow | null;
+  return row ? coerceCloudCanvasProject(row) : null;
+}
+
+function canvasProjectPayload(project: CanvasProject, orgId: string): string {
+  const clean = prepareCanvasProjectForStorage(project);
+  return JSON.stringify({
+    orgId,
+    name: clean.name,
+    data: { version: 1, canvasProject: clean },
+  });
+}
+
+async function saveCloudCanvasProject(project: CanvasProject, orgId: string, keepalive = false): Promise<boolean> {
+  const body = canvasProjectPayload(project, orgId);
+  const res = await fetch(`/api/canvas-projects/${encodeURIComponent(project.id)}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body,
+    keepalive: keepalive && body.length < 60000,
+  });
+  return res.ok;
+}
+
+async function deleteCloudCanvasProject(id: string): Promise<void> {
+  await fetch(`/api/canvas-projects/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {});
+}
+
+function sendCanvasProjectBeacon(project: CanvasProject, orgId: string): boolean {
+  if (!("sendBeacon" in navigator)) return false;
+  const body = canvasProjectPayload(project, orgId);
+  if (body.length >= 60000) return false;
+  return navigator.sendBeacon(
+    `/api/canvas-projects/${encodeURIComponent(project.id)}`,
+    new Blob([body], { type: "application/json" })
+  );
+}
+
+function canvasMediaThumbSrc(media: JobMedia | undefined): string | undefined {
+  if (!media) return undefined;
+  const thumb =
+    media.thumbDataUrl && /^(data:|https?:)/.test(media.thumbDataUrl)
+      ? media.thumbDataUrl
+      : undefined;
+  if (thumb) return thumb;
+  const localPath = normalizeLocalUploadPath(media.localPath);
+  if (localPath && /^(https?:|\/)/.test(localPath)) return localPath;
+  const preview =
+    media.previewUrl && media.previewUrl.startsWith("blob:")
+      ? media.previewUrl
+      : undefined;
+  if (preview) return preview;
+  const url = normalizeLocalUploadPath(media.url);
+  if (url && /^(https?:|data:|\/)/.test(url)) return url;
+  return undefined;
+}
 
 function canvasMediaDisplaySrc(media: JobMedia | undefined): string | undefined {
   if (!media) return undefined;
@@ -123,7 +227,7 @@ function nodeWidth(n: CanvasNode): number {
   if (k === "generate") return n.jobId ? 280 : 300;
   return NODE_W;
 }
-/** 短剧阶段聚焦：当前阶段对应的节点亮、其余淡化。script→剧本note，assets→资产，其余(分镜/出图/视频/配音/成片)→分镜generate */
+/** 短剧阶段聚焦：当前阶段对应的节点亮、其余淡化。script→剧本note，assets→资产，其余(分镜/出图/视频/成片)→分镜generate */
 function stageDimsNode(stage: DockStage | null, n: CanvasNode): boolean {
   if (!stage) return false;
   const k = n.kind ?? "generate";
@@ -408,6 +512,7 @@ function killRunningJobs(nodeList: CanvasNode[]) {
 export default function Canvas({ initialProjectId }: { initialProjectId?: string }) {
   const locale = useLocale();
   const zh = locale === "zh";
+  const { user, loading: authLoading } = useAuth();
 
   // 主 store：jobs(共享) + 生成动作 + draft 桥接
   const jobs = useStudioStore((s) => s.jobs);
@@ -424,6 +529,7 @@ export default function Canvas({ initialProjectId }: { initialProjectId?: string
   const hasHydrated = useCanvasStore((s) => s.hasHydrated);
   const edges = useCanvasStore((s) => s.edges);
   const groups = useCanvasStore((s) => s.groups);
+  const projects = useCanvasStore((s) => s.projects);
   const addNode = useCanvasStore((s) => s.addNode);
   const updateNode = useCanvasStore((s) => s.updateNode);
   const updateDraft = useCanvasStore((s) => s.updateDraft);
@@ -438,34 +544,127 @@ export default function Canvas({ initialProjectId }: { initialProjectId?: string
   const removeGroup = useCanvasStore((s) => s.removeGroup);
   const moveGroup = useCanvasStore((s) => s.moveGroup);
   const activeId = useCanvasStore((s) => s.activeId);
+  const importProject = useCanvasStore((s) => s.importProject);
 
-  // 让画布也能轮询 running job + 复活本地 blob 结果(与工坊同源)
+  useStateBackup();
   useJobPolling();
   useLocalJobRehydration();
 
   const switchProject = useCanvasStore((s) => s.switchProject);
+  const [canvasRestoreBusy, setCanvasRestoreBusy] = useState(false);
+  const knownCloudProjectIds = useRef<Set<string>>(new Set());
+  const cloudSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastCloudSaveRef = useRef<Map<string, string>>(new Map());
+
   /* ── URL ↔ activeId 双向同步：每个画布独立 path /canvas/<id>（照 studio，用 history API 不触发 SSR / 重渲）── */
   const suppressUrlSync = useRef(false);
   const urlInitConsumed = useRef(false);
   const prevActiveRef = useRef(activeId);
-  // mount：URL 带 projectId → hydrate 后切到对应画布；无 id / id 不存在 → 规范化 URL 到当前活跃画布
+  // mount：URL 带 projectId → 优先本地；本地无则尝试云端恢复；无 id / 不存在才规范化 URL。
   useEffect(() => {
-    if (urlInitConsumed.current) return;
-    const apply = () => {
+    if (urlInitConsumed.current || !hasHydrated || authLoading) return;
+    let alive = true;
+    const apply = async () => {
       if (urlInitConsumed.current) return;
-      urlInitConsumed.current = true;
       const st = useCanvasStore.getState();
       const base = locale === "zh" ? "/canvas" : "/en/canvas";
       if (initialProjectId && st.projects.some((p) => p.id === initialProjectId)) {
         if (initialProjectId !== st.activeId) { suppressUrlSync.current = true; switchProject(initialProjectId); }
-      } else {
-        window.history.replaceState(null, "", `${base}/${st.activeId}`);
+        knownCloudProjectIds.current.add(initialProjectId);
+        urlInitConsumed.current = true;
+        return;
+      }
+      if (initialProjectId && user) {
+        setCanvasRestoreBusy(true);
+        try {
+          const remote = await fetchCloudCanvasProject(initialProjectId);
+          if (!alive) return;
+          if (remote) {
+            knownCloudProjectIds.current.add(remote.id);
+            suppressUrlSync.current = true;
+            importProject(remote, true);
+            urlInitConsumed.current = true;
+            return;
+          }
+        } catch (err) {
+          console.warn("[canvas] cloud restore failed", err);
+        } finally {
+          if (alive) setCanvasRestoreBusy(false);
+        }
+      }
+      if (!alive) return;
+      urlInitConsumed.current = true;
+      const fresh = useCanvasStore.getState();
+      const active = fresh.activeId;
+      if (window.location.pathname !== `${base}/${active}`) {
+        window.history.replaceState(null, "", `${base}/${active}`);
       }
     };
-    if (useCanvasStore.persist.hasHydrated()) apply();
-    else return useCanvasStore.persist.onFinishHydration(apply);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    void apply();
+    return () => {
+      alive = false;
+    };
+  }, [hasHydrated, authLoading, user, initialProjectId, locale, switchProject, importProject]);
+
+  // 登录后如果直接进 /canvas，本地已有活动项目则保持原样；没有 URL id 时不主动拉列表，避免把短剧项目菜单的体验混进画布。
+  useEffect(() => {
+    if (!user || authLoading || !hasHydrated) return;
+    void ensureCanvasOrgId().catch(() => {});
+  }, [user, authLoading, hasHydrated]);
+
+  // 画布变更后静默云端保存。保留本地 persist，同时用云端兜底大画布刷新丢失。
+  useEffect(() => {
+    if (!hasHydrated || authLoading || !user || !urlInitConsumed.current) return;
+    const candidates = projects.filter((p) => {
+      const hasContent = p.nodes.length > 0 || p.edges.length > 0 || (p.groups?.length ?? 0) > 0;
+      return hasContent || knownCloudProjectIds.current.has(p.id) || p.id === initialProjectId;
+    });
+    if (candidates.length === 0) return;
+
+    if (cloudSaveTimer.current) clearTimeout(cloudSaveTimer.current);
+    cloudSaveTimer.current = setTimeout(() => {
+      void (async () => {
+        const orgId = await ensureCanvasOrgId();
+        if (!orgId) return;
+        for (const project of candidates) {
+          const payload = canvasProjectPayload(project, orgId);
+          if (payload === lastCloudSaveRef.current.get(project.id)) continue;
+          try {
+            const ok = await saveCloudCanvasProject(project, orgId);
+            if (ok) {
+              knownCloudProjectIds.current.add(project.id);
+              lastCloudSaveRef.current.set(project.id, payload);
+            }
+          } catch (err) {
+            console.warn("[canvas] cloud save failed", err);
+          }
+        }
+      })();
+    }, 1200);
+    return () => { if (cloudSaveTimer.current) clearTimeout(cloudSaveTimer.current); };
+  }, [projects, activeId, hasHydrated, authLoading, user, initialProjectId]);
+
+  // 刷新 / 关闭前尽量补一次小体积 beacon。大画布靠上面的持续防抖保存，避免 pagehide 时发超限 payload。
+  useEffect(() => {
+    if (!user) return;
+    const onPageHide = () => {
+      const allProjects = useCanvasStore.getState().projects;
+      const orgId = useStudioStore.getState().currentOrgId;
+      if (!orgId) return;
+      try {
+        allProjects.forEach((project) => {
+          const hasContent = project.nodes.length > 0 || project.edges.length > 0 || (project.groups?.length ?? 0) > 0;
+          if (!hasContent && !knownCloudProjectIds.current.has(project.id)) return;
+          sendCanvasProjectBeacon(project, orgId);
+        });
+      } catch {
+        /* best effort */
+      }
+    };
+    window.addEventListener("pagehide", onPageHide);
+    return () => window.removeEventListener("pagehide", onPageHide);
+  }, [user]);
+
   // activeId 变（切画布/新建）→ pushState 更新 URL（支持浏览器后退）；popstate / 初始化触发的变化跳过避免死循环
   useEffect(() => {
     if (prevActiveRef.current === activeId) return;
@@ -485,15 +684,28 @@ export default function Canvas({ initialProjectId }: { initialProjectId?: string
       if (st.projects.some((p) => p.id === id)) {
         suppressUrlSync.current = true; switchProject(id);
       } else {
-        // 后退到已删画布的 URL → switchProject 会静默 no-op，这里改成纠正地址栏到当前活跃画布，
-        //   既不留死 URL，也不会把 suppressUrlSync 残留成 true 吞掉下一次正常切换的 pushState
-        const base = locale === "zh" ? "/canvas" : "/en/canvas";
-        window.history.replaceState(null, "", `${base}/${st.activeId}`);
+        void (async () => {
+          if (user) {
+            try {
+              const remote = await fetchCloudCanvasProject(id);
+              if (remote) {
+                knownCloudProjectIds.current.add(remote.id);
+                suppressUrlSync.current = true;
+                importProject(remote, true);
+                return;
+              }
+            } catch (err) {
+              console.warn("[canvas] popstate cloud restore failed", err);
+            }
+          }
+          const base = locale === "zh" ? "/canvas" : "/en/canvas";
+          window.history.replaceState(null, "", `${base}/${useCanvasStore.getState().activeId}`);
+        })();
       }
     };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
-  }, [switchProject, locale]);
+  }, [switchProject, locale, user, importProject]);
 
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   // 节点媒体灯箱：点节点上的图/视频放大查看；点空白处或按 Esc 关闭复原
@@ -562,6 +774,11 @@ export default function Canvas({ initialProjectId }: { initialProjectId?: string
   // 短剧进度坞的批量执行态
   const [dockBusy, setDockBusy] = useState<{ stage: DockStage; done: number; total: number } | null>(null);
   const composerApi = useRef<ComposerApi | null>(null);
+  const openNodeComposer = useCallback((id: string) => {
+    setSelectedNodeId(id);
+    setAllSelected(false);
+    requestAnimationFrame(() => composerApi.current?.focus());
+  }, []);
   // 画布双模式：free=自由创作（对话/图/视频自由生长）；drama=短剧（一句话编排整部 + 进度坞）
   const [canvasMode, setCanvasMode] = useState<"free" | "drama">("free");
   const [modeHydrated, setModeHydrated] = useState(false); // canvasMode 读完 localStorage —— 与 hasHydrated 共同守卫空态卡，杜绝 free→drama 闪烁
@@ -725,13 +942,19 @@ export default function Canvas({ initialProjectId }: { initialProjectId?: string
   // ── 输入即联动：对话框一有输入但没绑定节点 → 自动冒一个草稿节点实时同步；清空则撤掉 ──
   const draftNodeRef = useRef<string | null>(null);
   useEffect(() => {
+    if (!hasHydrated || !modeHydrated || !urlInitConsumed.current) return;
     const text = (draft.prompt || "").trim();
     const draftId = draftNodeRef.current;
+    const removeDraftNode = () => {
+      if (!draftId) return;
+      const n0 = useCanvasStore.getState().nodes.find((x) => x.id === draftId);
+      if (n0 && !n0.jobId) removeNode(draftId);
+      if (selectedNodeId === draftId) setSelectedNodeId(null);
+      draftNodeRef.current = null;
+    };
     // 短剧用题材/自己写/智能编排起草，不走"输入即草稿节点"——否则 agent 态有残留输入就冒重复草稿 note
-    if (canvasMode === "drama") {
-      if (draftId) { const n0 = useCanvasStore.getState().nodes.find((x) => x.id === draftId); if (n0 && !n0.jobId) removeNode(draftId); draftNodeRef.current = null; }
-      return;
-    }
+    if (canvasMode === "drama") { removeDraftNode(); return; }
+    if (composerMode === "chat") { removeDraftNode(); return; }
     // 选中的是「真实存在的」别的节点 → 不干预手动编辑（清空后 selectedNodeId 可能残留指向已删节点，不能据此 return）
     const selExists = selectedNodeId ? useCanvasStore.getState().nodes.some((n) => n.id === selectedNodeId) : false;
     if (selExists && selectedNodeId !== draftId) return;
@@ -739,7 +962,7 @@ export default function Canvas({ initialProjectId }: { initialProjectId?: string
       // 用节点真实存在性判断，而非 ref —— clearCanvas 后 ref 可能残留指向已删草稿
       const cur = draftId ? useCanvasStore.getState().nodes.find((x) => x.id === draftId) : null;
       if (!cur) {
-        const kind = composerMode === "chat" ? "chat" : composerMode === "agent" ? "note" : "generate";
+        const kind = composerMode === "agent" ? "note" : "generate";
         const at = spawnPoint([], 280);
         const sd = useStudioStore.getState().draft;
         const id = addNode({
@@ -753,20 +976,17 @@ export default function Canvas({ initialProjectId }: { initialProjectId?: string
       } else {
         const n = cur;
         if (n && !n.jobId) {
-          // composerMode 异步同步后修正草稿 kind（图/视频→generate、对话→chat、短剧→note）
-          const wantKind = composerMode === "chat" ? "chat" : composerMode === "agent" ? "note" : "generate";
+          // composerMode 异步同步后修正草稿 kind（图/视频→generate、短剧→note；chat 已在上方退出）
+          const wantKind = composerMode === "agent" ? "note" : "generate";
           if ((n.kind ?? "generate") !== wantKind) updateNode(n.id, { kind: wantKind });
           // note 草稿展示 node.text（非 draft.prompt），单独同步
           if (wantKind === "note" && n.text !== draft.prompt) updateNode(n.id, { text: draft.prompt });
         }
       }
     } else if (draftId) {
-      const n = useCanvasStore.getState().nodes.find((x) => x.id === draftId);
-      if (n && !n.jobId) removeNode(draftId); // 未生成的空草稿 → 撤掉
-      if (selectedNodeId === draftId) setSelectedNodeId(null);
-      draftNodeRef.current = null;
+      removeDraftNode(); // 未生成的空草稿 → 撤掉
     }
-  }, [draft.prompt, composerMode, selectedNodeId, canvasMode]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [draft.prompt, composerMode, selectedNodeId, canvasMode, hasHydrated, modeHydrated]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [libraryForNode, setLibraryForNode] = useState<string | null>(null);
@@ -1343,7 +1563,7 @@ export default function Canvas({ initialProjectId }: { initialProjectId?: string
           if (isDrama) setRunInfo({ done: i, total: ordered.length, current: label, step: zh ? "出视频" : "Video" });
           await waitForJob(jobId);
           if (useStudioStore.getState().jobs.find((j) => j.id === jobId)?.status === "error") failed++;
-          if (isDrama) {
+          if (DRAMA_VOICE_ENABLED && isDrama) {
             setRunInfo({ done: i, total: ordered.length, current: label, step: zh ? "配音" : "Voice" });
             // 配音挂在【视频输出节点】(generateNode 已自动配它)；读视频节点状态决定是否补配，
             // 避免对分镜节点重复 TTS(费用×2)+ 配音落到分镜成孤儿(导出从视频节点读)。
@@ -1853,8 +2073,8 @@ export default function Canvas({ initialProjectId }: { initialProjectId?: string
         else updateNode(node.id, { takes: [], activeTakeIdx: undefined, videoJobId: undefined, jobId: imgJobId });
       }
 
-      // Step 3: TTS 配音（与 I2V 并行，不阻塞）；用户已终止则跳过，不白跑配音
-      if (!opts?.signal?.aborted) canvasGenVoice(node).catch(() => {});
+      // TTS 配音阶段当前从短剧主流程关闭，保留开关便于后续恢复。
+      if (DRAMA_VOICE_ENABLED && !opts?.signal?.aborted) canvasGenVoice(node).catch(() => {});
 
       return vidJobId;
     }
@@ -2414,7 +2634,7 @@ export default function Canvas({ initialProjectId }: { initialProjectId?: string
             <button type="button" className="cvc-so-go" disabled={busy || dramaShots.length === 0} onClick={() => { setActiveStage(null); void runI2VStage(i2vModel, i2vDuration); }}>▶ {zh ? "转视频" : "Animate"}</button>
             <button type="button" className="cvc-so-add" disabled={busy} onClick={() => { setActiveStage(null); void reanimateAllVideos(); }} title={zh ? "清掉已生成视频，用新逻辑(默认 r2v 锁脸 + 跟随分镜 + 角色场景道具参考)整组重跑" : "Re-run all videos with new logic"}>♻ {zh ? "重转全部" : "Redo all"}</button>
           </>)}
-          {activeStage === "voice" && (<>
+          {DRAMA_VOICE_ENABLED && activeStage === "voice" && (<>
             <label className="cvc-so-field"><span>{zh ? "音色" : "Voice"}</span>
               <select value={voiceId} onChange={(e) => setVoiceId(e.target.value)}>{voiceList.map((v) => <option key={v.id} value={v.id}>{v.zh} · {v.desc}</option>)}</select>
             </label>
@@ -2440,11 +2660,9 @@ export default function Canvas({ initialProjectId }: { initialProjectId?: string
     );
   };
   const openStagePanelForNote = useCallback((note: CanvasNode, stage: DockStage) => {
-    setSelectedNodeId(note.id);
-    setAllSelected(false);
-    requestAnimationFrame(() => composerApi.current?.focus());
+    openNodeComposer(note.id);
     setActiveStage(stage);
-  }, []);
+  }, [openNodeComposer]);
 
   // 短剧「下一步」按节点自身剧本计算(用 note.groupId 调度,避免多剧集拆错组);run 时先选中该剧本,活跃组随之同步。
   const nextStepFor = useCallback((note: CanvasNode) => {
@@ -2461,9 +2679,9 @@ export default function Canvas({ initialProjectId }: { initialProjectId?: string
     if (shots.some((s) => needsRedo(videoCarrier(s).videoJobId))) return { label: zh ? "分镜转视频" : "Shots to video", run: () => { focus(); void runI2VStage(i2vModel, i2vDuration, gid); } }; // 一键转视频用坞同款配置(默认 r2v 锁脸 + 跟随分镜时长)
     // 视频仍在渲染 → 不放行合成，避免导出缺镜/降级静帧（用户以为做完了）
     if (shots.some((s) => isRunning(videoCarrier(s).videoJobId))) return { label: zh ? "视频渲染中…" : "Rendering…", run: () => flash(zh ? "还有分镜在渲染视频，完成后再合成" : "Some shots are still rendering") };
-    // 配音（合成前）：有台词且未配音的分镜 → 先配音，杜绝顺「下一步」一路点出无声成片
+    // 配音阶段当前关闭：视频完成后直接进入合成。
     const hasLine = (n: CanvasNode) => !!n.text?.split(" · ")[0]?.trim();
-    if (shots.some((s) => hasLine(s) && !videoCarrier(s).voiceJobId)) return { label: zh ? "配音" : "Voice", run: () => { focus(); void runVoiceStage(voiceId, gid); } }; // 用坞同款音色 + 本组 gid(不配错集)
+    if (DRAMA_VOICE_ENABLED && shots.some((s) => hasLine(s) && !videoCarrier(s).voiceJobId)) return { label: zh ? "配音" : "Voice", run: () => { focus(); void runVoiceStage(voiceId, gid); } }; // 用坞同款音色 + 本组 gid(不配错集)
     return { label: zh ? "合成成片" : "Compose cut", run: () => { focus(); exportToEditor({ aspect: "9:16", transition: "fade", crossfadeSec: 0.5, subtitle: true }, gid); } };
   }, [canvasMode, nodes, zh, dramaShotCount, orchModel, designModel, designStyle, designSize, i2vModel, i2vDuration, voiceId, openStagePanelForNote]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -3148,7 +3366,7 @@ export default function Canvas({ initialProjectId }: { initialProjectId?: string
       const videoJob = vc.videoJobId ? liveJobs.find((j) => j.id === vc.videoJobId) : undefined;
       const imageJob = vc.imageJobId ? liveJobs.find((j) => j.id === vc.imageJobId) : undefined;
       const videoUrl = videoJob?.status === "done" ? videoJob.videoUrl : undefined;
-      const imageUrl = imageJob?.status === "done" ? canvasJobImageDisplaySrc(imageJob) : undefined;
+      const imageUrl = imageJob?.status === "done" ? (imageJob.videoUrl || imageJob.media?.img_url?.url) : undefined;
 
       // 缺画面(视频+静帧都没有) → 跳过且【不推进游标】，保持 a1 配音与 v1 拼接对齐；计数防静默丢
       if (!videoUrl && !imageUrl) { skipped++; if (vc.voiceJobId) droppedVoice++; continue; }
@@ -3690,6 +3908,7 @@ export default function Canvas({ initialProjectId }: { initialProjectId?: string
               dragOffset={dragDelta?.id === n.id ? dragDelta : (groupDrag && n.groupId === groupDrag.id ? { dx: groupDrag.dx, dy: groupDrag.dy } : undefined)}
               onMeasure={onMeasureNode}
               onSelect={() => setSelectedNodeId(n.id)}
+              onOpenComposer={() => openNodeComposer(n.id)}
               onDragHandle={(e) => startNodeDrag(e, n)}
               onResizeStart={(e, dir) => startResize(e, n, dir)}
               onPromptChange={(v) => updateDraft(n.id, { prompt: v })}
@@ -3709,7 +3928,7 @@ export default function Canvas({ initialProjectId }: { initialProjectId?: string
               onDerive={(mode) => deriveNode(n, mode)}
               onStartLink={(e) => startLink(e, n.id)}
               onUpdateNode={(patch) => updateNode(n.id, patch)}
-              onGenVoice={n.orchMode === "drama" ? () => void canvasGenVoice(n) : undefined}
+              onGenVoice={DRAMA_VOICE_ENABLED && n.orchMode === "drama" ? () => void canvasGenVoice(n) : undefined}
               onAddRef={() => addPendingRef(n.id)}
               onUseAsPrompt={(n.kind ?? "") === "answer" ? () => answerToGenerateNode(n) : undefined}
               onUseAsScript={(n.kind ?? "") === "answer" ? () => answerToScript(n) : undefined}
@@ -3727,7 +3946,7 @@ export default function Canvas({ initialProjectId }: { initialProjectId?: string
         </div>
 
 
-        {hasHydrated && modeHydrated && nodes.length === 0 && (
+        {hasHydrated && modeHydrated && !canvasRestoreBusy && nodes.length === 0 && (
           <div className="cv-empty cv-empty-solo">
             {canvasMode === "drama" ? (
               /* 短剧首屏：选题材一键起草 / 自己写，并指引"之后一路点下一步" */
@@ -3920,9 +4139,9 @@ export default function Canvas({ initialProjectId }: { initialProjectId?: string
             <ol className="cv-guide-steps">
               <li><b>{zh ? "连线 = 拼接开关。" : "Edges are the switch. "}</b>{zh ? "从节点底部圆点拖一条线到另一个节点 ——「角色 → 分镜」就是告诉系统这镜用这个角色；出图时自动把参考图 + 台词组合成画面，让同一角色 / 道具 " : "Drag from a node's bottom dot to another — cast & props stay "}<em>{zh ? "跨镜保持一致" : "consistent across shots"}</em>{zh ? "。" : "."}</li>
               <li><b>{zh ? "最快路径：" : "Fastest path: "}</b>{zh ? "选题材 → AI 起草剧本 → 顺着剧本卡「下一步」一路点：拆分镜 → 出图 → 视频 → 成片。" : "pick a genre, then keep clicking Next on the script card."}</li>
-              <li><b>{zh ? "想精细控制：" : "Fine control: "}</b>{zh ? "每步都能手动 —— 顶部进度坞手动加镜 / 角色 / 道具，分镜卡 ✦ 改画面、🔊 配音。" : "every step has a manual entry in the top dock."}</li>
+              <li><b>{zh ? "想精细控制：" : "Fine control: "}</b>{zh ? "每步都能手动：顶部进度坞手动加镜 / 角色 / 道具，分镜卡 ✦ 改画面。" : "every step has a manual entry in the top dock."}</li>
             </ol>
-            <div className="cv-guide-flow">{zh ? "剧本 → 分镜 → 角色 / 场景 / 道具 → 出图 → 视频 → 配音 → 成片" : "Script → Shots → Cast → Image → Video → Voice → Cut"}</div>
+            <div className="cv-guide-flow">{zh ? "剧本 → 分镜 → 角色 / 场景 / 道具 → 出图 → 视频 → 成片" : "Script → Shots → Cast → Image → Video → Cut"}</div>
             <button type="button" className="cv-guide-btn" onClick={closeGuide}>{zh ? "知道了，开始创作 ✦" : "Got it ✦"}</button>
           </div>
         </div>
@@ -4202,6 +4421,7 @@ function CanvasProjectMenu({ zh, busy }: { zh: boolean; busy: boolean }) {
                             const cst = useCanvasStore.getState();
                             killRunningJobs(p.id === cst.activeId ? cst.nodes : (p.nodes ?? [])); // active 项目 nodes 在顶层、inactive 在 p.nodes
                             deleteProject(p.id);
+                            void deleteCloudCanvasProject(p.id);
                             setConfirmId(null);
                           }}
                         >
@@ -4290,6 +4510,7 @@ function NodeCardImpl({
   dragOffset,
   onMeasure,
   onSelect,
+  onOpenComposer,
   onDragHandle,
   onResizeStart,
   onPromptChange,
@@ -4336,6 +4557,7 @@ function NodeCardImpl({
   dragOffset?: { dx: number; dy: number };
   onMeasure?: (id: string, size: { w: number; h: number } | null) => void;
   onSelect?: () => void;
+  onOpenComposer?: () => void;
   onDragHandle: (e: React.PointerEvent) => void;
   onResizeStart: (e: React.PointerEvent, dir: string) => void;
   onPromptChange: (v: string) => void;
@@ -4343,7 +4565,7 @@ function NodeCardImpl({
   /** 短剧剧本节点的「下一步」(跟随进度:拆分镜/批量出图/转视频/成片) */
   onNextStep?: () => void;
   nextStepLabel?: string;
-  /** 短剧「下一步」对应的 AI 操作正在后台跑(拆分镜/出图/视频/配音) —— 按钮显示进行中并禁用 */
+  /** 短剧「下一步」对应的 AI 操作正在后台跑(拆分镜/出图/视频) —— 按钮显示进行中并禁用 */
   nextStepBusy?: boolean;
   /** 剧本 AI 改写进行中 —— 让卡片显示准确的「改写中」而非误导的「拆分镜中」 */
   rewriting?: boolean;
@@ -4441,6 +4663,13 @@ function NodeCardImpl({
   const linkCls = linkHint === "ok" ? " cv-node-linkok" : linkHint === "bad" ? " cv-node-linkbad" : "";
   const nodeExtraCls = linkCls + (edgeHi ? " cv-node-edgehi" : "") + (dimmed ? " cv-node-dim" : "");
   const portActiveCls = isLinkSrc ? " cv-port-active" : "";
+  const openComposerFromDoubleClick = (e: React.MouseEvent<HTMLElement>) => {
+    const target = e.target as HTMLElement | null;
+    if (target?.closest("button, input, textarea, select, video, audio, .cv-node-result, .cv-node-branch, .cv-plus-wrap, .cv-takes")) return;
+    e.stopPropagation();
+    onSelect?.();
+    onOpenComposer?.();
+  };
 
   /* 上=输入端口（被连入），下=输出端口（拖出连线） */
   const ports = (
@@ -4457,7 +4686,7 @@ function NodeCardImpl({
   /* ── note：创意 / 剧本 文本节点 ── */
   if (kind === "note") {
     return (
-      <article ref={rootRef as React.Ref<HTMLElement>} className={`cv-node cv-node-note${selected ? " cv-node-sel" : ""}${nodeExtraCls}`} data-kind="note" style={{ left: px, top: py, width, height: node.h }} data-node-id={node.id} data-h={node.h ? "1" : undefined} onPointerDown={onDragHandle} onClick={onSelect} onWheel={(e) => e.stopPropagation()}>
+      <article ref={rootRef as React.Ref<HTMLElement>} className={`cv-node cv-node-note${selected ? " cv-node-sel" : ""}${nodeExtraCls}`} data-kind="note" style={{ left: px, top: py, width, height: node.h }} data-node-id={node.id} data-h={node.h ? "1" : undefined} onPointerDown={onDragHandle} onClick={onSelect} onDoubleClick={openComposerFromDoubleClick} onWheel={(e) => e.stopPropagation()}>
         {ports}
         <header className="cv-node-head" onPointerDown={onDragHandle}>
           <span className="cv-node-mode">💡</span>
@@ -4510,7 +4739,7 @@ function NodeCardImpl({
   /* ── chat：对话输入框（问题） ── */
   if (kind === "chat") {
     return (
-      <article ref={rootRef as React.Ref<HTMLElement>} className={`cv-node cv-node-chat${selected ? " cv-node-sel" : ""}${nodeExtraCls}`} data-kind="chat" style={{ left: px, top: py, width, height: node.h }} data-node-id={node.id} data-h={node.h ? "1" : undefined} onPointerDown={onDragHandle} onClick={onSelect} onWheel={(e) => e.stopPropagation()}>
+      <article ref={rootRef as React.Ref<HTMLElement>} className={`cv-node cv-node-chat${selected ? " cv-node-sel" : ""}${nodeExtraCls}`} data-kind="chat" style={{ left: px, top: py, width, height: node.h }} data-node-id={node.id} data-h={node.h ? "1" : undefined} onPointerDown={onDragHandle} onClick={onSelect} onDoubleClick={openComposerFromDoubleClick} onWheel={(e) => e.stopPropagation()}>
         {ports}
         <header className="cv-node-head" onPointerDown={onDragHandle}>
           <span className="cv-node-mode">💬</span>
@@ -4534,7 +4763,7 @@ function NodeCardImpl({
     const body = node.text ?? "";
     const failed = body.startsWith("⚠");
     return (
-      <article ref={rootRef as React.Ref<HTMLElement>} className={`cv-node cv-node-answer${selected ? " cv-node-sel" : ""}${failed ? " cv-node-error" : ""}${nodeExtraCls}`} data-kind="answer" style={{ left: px, top: py, width, height: node.h }} data-node-id={node.id} data-h={node.h ? "1" : undefined} onPointerDown={onDragHandle} onClick={onSelect} onWheel={(e) => e.stopPropagation()}>
+      <article ref={rootRef as React.Ref<HTMLElement>} className={`cv-node cv-node-answer${selected ? " cv-node-sel" : ""}${failed ? " cv-node-error" : ""}${nodeExtraCls}`} data-kind="answer" style={{ left: px, top: py, width, height: node.h }} data-node-id={node.id} data-h={node.h ? "1" : undefined} onPointerDown={onDragHandle} onClick={onSelect} onDoubleClick={openComposerFromDoubleClick} onWheel={(e) => e.stopPropagation()}>
         {ports}
         <header className="cv-node-head" onPointerDown={onDragHandle}>
           <span className="cv-node-mode">✦</span>
@@ -4594,7 +4823,7 @@ function NodeCardImpl({
     const busy = status === "running" || status === "submitting";
     const assetSrc = canvasJobImageDisplaySrc(job);
     return (
-      <article ref={rootRef as React.Ref<HTMLElement>} className={`cv-node cv-node-asset${selected ? " cv-node-sel" : ""}${isDone ? " done" : ""}${status === "error" ? " cv-node-error" : ""}${nodeExtraCls}`} data-kind={kind} style={{ left: px, top: py, width, height: node.h }} data-node-id={node.id} data-h={node.h ? "1" : undefined} onPointerDown={onDragHandle} onClick={onSelect} onWheel={(e) => e.stopPropagation()}>
+      <article ref={rootRef as React.Ref<HTMLElement>} className={`cv-node cv-node-asset${selected ? " cv-node-sel" : ""}${isDone ? " done" : ""}${status === "error" ? " cv-node-error" : ""}${nodeExtraCls}`} data-kind={kind} style={{ left: px, top: py, width, height: node.h }} data-node-id={node.id} data-h={node.h ? "1" : undefined} onPointerDown={onDragHandle} onClick={onSelect} onDoubleClick={openComposerFromDoubleClick} onWheel={(e) => e.stopPropagation()}>
         {ports}
         <header className="cv-node-head cv-asset-head" onPointerDown={onDragHandle}>
           <span className="cv-asset-badge"><NodeKindIcon kind={kind} size={12} /><em>{kind === "character" ? (zh ? "角色" : "Cast") : kind === "prop" ? (zh ? "道具" : "Prop") : (zh ? "场景" : "Scene")}</em></span>
@@ -4632,6 +4861,7 @@ function NodeCardImpl({
         data-node-id={node.id} data-h={node.h ? "1" : undefined}
         onPointerDown={onDragHandle}
         onClick={onSelect}
+        onDoubleClick={openComposerFromDoubleClick}
         onWheel={(e) => e.stopPropagation()}
       >
         {ports}
@@ -4820,7 +5050,7 @@ function NodeCardImpl({
               </div>
             </>
           ) : isDrama && (imageJob || videoJob) ? (
-            /* 短剧三段流水线：出图 → 出视频 → 配音 */
+            /* 短剧流水线：出图 → 出视频 */
             <div className="cv-node-developing cv-drama-pipeline">
               {imageJob?.status === "done" && canvasJobImageDisplaySrc(imageJob) && (
                 /* eslint-disable-next-line @next/next/no-img-element */
@@ -4836,11 +5066,15 @@ function NodeCardImpl({
                   {videoJob?.status === "done" ? "✓" : videoJob?.status === "error" ? "✗" : videoJob ? <span className="cv-spinner cv-spinner-sm" /> : "○"}
                   {zh ? " 出视频" : " Video"}
                 </span>
-                <span className="cv-ds-arrow">→</span>
-                <span className={`cv-ds${node.voiceJobId ? " ok" : ""}`}>
-                  {node.voiceJobId ? "✓" : "○"}
-                  {zh ? " 配音" : " Voice"}
-                </span>
+                {DRAMA_VOICE_ENABLED && (
+                  <>
+                    <span className="cv-ds-arrow">→</span>
+                    <span className={`cv-ds${node.voiceJobId ? " ok" : ""}`}>
+                      {node.voiceJobId ? "✓" : "○"}
+                      {zh ? " 配音" : " Voice"}
+                    </span>
+                  </>
+                )}
               </div>
               {devTimer && <div className="cv-dev-timer">{devTimer}</div>}
               {node.voiceJobId && (
@@ -4864,10 +5098,12 @@ function NodeCardImpl({
         模型/参数/媒体/运行 全在底部对话框（点选即联动） ── */
   const hasPromptField = (spec?.fields ?? []).some((f) => f.key === "prompt");
   const mediaThumbs: { url?: string; label: string }[] = [];
-  if (d.media.img_url?.url) mediaThumbs.push({ url: canvasMediaDisplaySrc(d.media.img_url), label: zh ? "首帧" : "frame" });
+  // 避免把 oss:// 或失效 blob: 直接塞进 <img>。智能对话框能显示的
+  // localPath 在画布节点里也必须参与取源。
+  if (d.media.img_url) mediaThumbs.push({ url: canvasMediaThumbSrc(d.media.img_url), label: zh ? "首帧" : "frame" });
   if (d.media.video_url?.url) mediaThumbs.push({ label: zh ? "视频" : "video" });
   (d.media.reference_urls ?? d.media.ref_images ?? []).forEach((r, i) =>
-    mediaThumbs.push({ url: canvasMediaDisplaySrc(r), label: `${zh ? "参考" : "ref"}${i + 1}` })
+    mediaThumbs.push({ url: canvasMediaThumbSrc(r), label: `${zh ? "参考" : "ref"}${i + 1}` })
   );
 
   return (
@@ -4879,6 +5115,7 @@ function NodeCardImpl({
       data-node-id={node.id} data-h={node.h ? "1" : undefined}
       onPointerDown={onDragHandle}
       onClick={onSelect}
+      onDoubleClick={openComposerFromDoubleClick}
       onWheel={(e) => e.stopPropagation()}
     >
       {ports}
