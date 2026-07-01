@@ -16,6 +16,8 @@ import LocaleSwitcher from "./LocaleSwitcher";
 import {
   renderProject,
   probeDuration,
+  dimsFor,
+  formatCaptionText,
   type RenderProgress,
 } from "@/lib/editor/renderProject";
 import { usePlayback } from "@/lib/editor/playback";
@@ -43,6 +45,11 @@ function fmtTime(s: number): string {
   const m = Math.floor(s / 60);
   const sec = s - m * 60;
   return `${String(m).padStart(2, "0")}:${sec.toFixed(1).padStart(4, "0")}`;
+}
+
+function isWasmMemoryError(error: unknown): boolean {
+  const msg = error instanceof Error ? error.message : String(error);
+  return /memory access out of bounds|out of memory|wasm memory|abort/i.test(msg);
 }
 
 /** 快捷键面板的 group 容器 */
@@ -480,6 +487,10 @@ export default function Editor() {
   const TH = 96;
 
   const allClips = project.clips;
+  const captionCount = useMemo(
+    () => allClips.filter((c) => c.text?.content?.trim()).length,
+    [allClips]
+  );
   // V1 = primary playable track. Other tracks store clips visually but
   // current playback engine is sequential single-track.
   const clips = allClips.filter((c) => (c.trackId ?? "v1") === "v1");
@@ -877,6 +888,13 @@ export default function Editor() {
     .map((track) => playback.activeByTrack[track.id])
     .filter((clip): clip is EditorClip => !!clip?.text?.content);
   const activeTextClip = activeTextClips[activeTextClips.length - 1];
+  const activeCaptionText = activeTextClip?.text?.content
+    ? formatCaptionText(
+        activeTextClip.text.content,
+        activeTextClip.text.sizePx,
+        dimsFor(pAspect, pExportH).w
+      )
+    : "";
 
   /** Pre-computed snap targets: every clip start+end + playhead + 0.
    *  Per-clip filtering (exclude own edges) is done inline in the JSX. */
@@ -1199,6 +1217,15 @@ export default function Editor() {
     setToast(msg);
     window.setTimeout(() => setToast(null), 2000);
   }
+  function clearAllCaptions() {
+    if (captionCount === 0) return;
+    editorBatch(() => {
+      allClips.forEach((clip) => {
+        if (clip.text) updateClip(clip.id, { text: undefined });
+      });
+    });
+    flash(zh ? "字幕已清除" : "Captions cleared");
+  }
   async function handleExport() {
     const allClips = clips.length > 0 ? clips : videoClips;
     const exportClips = allClips
@@ -1212,7 +1239,7 @@ export default function Editor() {
     }
     setExportProgress({ stage: "loading", pct: 0 });
     try {
-      const blob = await renderProject(exportClips, (p) => setExportProgress(p), {
+      const renderOptions = {
         aspect: pAspect,
         crossfadeSec: pCrossfade,
         exportHeight: pExportH,
@@ -1222,7 +1249,25 @@ export default function Editor() {
         layout: pLayout,
         splitImage: project.splitImage,
         splitRatio: pSplitRatio,
-      });
+      };
+      let usedFallback = false;
+      let blob: Blob;
+      try {
+        blob = await renderProject(exportClips, (p) => setExportProgress(p), renderOptions);
+      } catch (e) {
+        if (!isWasmMemoryError(e)) throw e;
+        usedFallback = true;
+        setExportProgress({
+          stage: "loading",
+          pct: 0.02,
+          message: zh ? "内存不足，切到轻量导出重试..." : "Memory fallback, retrying...",
+        });
+        blob = await renderProject(exportClips, (p) => setExportProgress(p), {
+          ...renderOptions,
+          crossfadeSec: 0,
+          exportHeight: Math.min(pExportH, 720),
+        });
+      }
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -1231,7 +1276,11 @@ export default function Editor() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      flash(zh ? "已导出 ✓" : "Exported ✓");
+      flash(
+        usedFallback
+          ? (zh ? "已用轻量模式导出 ✓" : "Exported with safe mode ✓")
+          : (zh ? "已导出 ✓" : "Exported ✓")
+      );
     } catch (e) {
       flash(
         (zh ? "导出失败：" : "Export failed: ") +
@@ -1691,6 +1740,15 @@ export default function Editor() {
               )}
               <button
                 type="button"
+                className="ed-btn"
+                onClick={clearAllCaptions}
+                disabled={captionCount === 0}
+                title={zh ? "清除所有片段字幕" : "Clear all captions"}
+              >
+                {zh ? "清字幕" : "Clear captions"}
+              </button>
+              <button
+                type="button"
                 className="ed-btn danger"
                 onClick={async () => {
                   if (
@@ -1949,7 +2007,7 @@ export default function Editor() {
                       className="ed-preview-clickcatch"
                       style={{ zIndex: 5 }}
                     />
-                    {activeTextClip?.text?.content && (
+                    {activeCaptionText && activeTextClip?.text && (
                       <div
                         className={`ed-overlay ed-overlay-${activeTextClip.text.position}`}
                         style={{
@@ -1957,7 +2015,9 @@ export default function Editor() {
                           fontSize: activeTextClip.text.sizePx,
                         }}
                       >
-                        {activeTextClip.text.content}
+                        {activeCaptionText.split("\n").map((line, idx) => (
+                          <span key={`${idx}-${line}`}>{line}</span>
+                        ))}
                       </div>
                     )}
                   </div>
@@ -3624,23 +3684,31 @@ export default function Editor() {
         }
         .ed-overlay {
           position: absolute;
-          left: 0;
-          right: 0;
+          left: 50%;
+          width: max-content;
+          max-width: min(92%, 960px);
           text-align: center;
           font-family: var(--font-sans);
           font-weight: 600;
-          padding: 8px 16px;
+          line-height: 1.25;
+          white-space: pre-line;
+          overflow-wrap: anywhere;
+          padding: 8px 14px;
+          transform: translateX(-50%);
           text-shadow:
             0 2px 4px rgba(0, 0, 0, 0.8),
             0 0 8px rgba(0, 0, 0, 0.4);
           pointer-events: none;
+        }
+        .ed-overlay span {
+          display: block;
         }
         .ed-overlay-top {
           top: 6%;
         }
         .ed-overlay-center {
           top: 50%;
-          transform: translateY(-50%);
+          transform: translate(-50%, -50%);
         }
         .ed-overlay-bottom {
           bottom: 6%;

@@ -80,6 +80,61 @@ function escapeDrawtext(s: string): string {
     .replace(/\n/g, " ");
 }
 
+function captionCharUnits(ch: string): number {
+  if (/\s/.test(ch)) return 0.35;
+  if (/[\u2e80-\u9fff\uff00-\uffef]/.test(ch)) return 1;
+  return 0.58;
+}
+
+export function formatCaptionText(
+  input: string,
+  fontSize = 26,
+  widthPx = 720,
+  maxLines = 3
+): string {
+  const clean = input.replace(/\s+/g, " ").trim();
+  if (!clean) return "";
+
+  const limit = Math.max(8, Math.floor((widthPx / Math.max(12, fontSize)) * 0.92));
+  const chars = Array.from(clean);
+  const lines: string[] = [];
+  let line = "";
+  let units = 0;
+  let clipped = false;
+
+  for (let i = 0; i < chars.length; i += 1) {
+    const ch = chars[i];
+    const nextUnits = units + captionCharUnits(ch);
+    if (line && nextUnits > limit) {
+      lines.push(line.trim());
+      line = "";
+      units = 0;
+      if (lines.length >= maxLines) {
+        clipped = true;
+        break;
+      }
+    }
+    line += ch;
+    units += captionCharUnits(ch);
+  }
+
+  if (line.trim() && lines.length < maxLines) {
+    lines.push(line.trim());
+  } else if (line.trim()) {
+    clipped = true;
+  }
+
+  if (lines.length === maxLines) {
+    const used = lines.join("").replace(/\s+/g, "").length;
+    const total = clean.replace(/\s+/g, "").length;
+    clipped = clipped || used < total;
+  }
+  if (clipped && lines.length > 0) {
+    lines[lines.length - 1] = lines[lines.length - 1].replace(/[，。；、,.!?！？\s]*$/, "") + "...";
+  }
+  return lines.join("\n");
+}
+
 /** Build the per-clip filter chain: trim + setpts + scale+pad + optional drawtext.
  *  `fontPath` is the virtual FS path for drawtext (written by renderProject). */
 function buildFilter(
@@ -114,17 +169,23 @@ function buildFilter(
   // Caption
   if (clip.text?.content?.trim()) {
     const t = clip.text;
-    const y =
-      t.position === "top"
-        ? "40"
-        : t.position === "center"
-          ? "(h-text_h)/2"
-          : "h-text_h-48";
     const col = (t.color || "white").replace(/^#/, "0x");
     const fontArg = fontPath ? `fontfile=${fontPath}:` : "";
-    filters.push(
-      `drawtext=${fontArg}text='${escapeDrawtext(t.content)}':x=(w-text_w)/2:y=${y}:fontsize=${t.sizePx}:fontcolor=${col}:box=1:boxcolor=black@0.4:boxborderw=10`
-    );
+    const fontSize = Math.max(12, Math.min(96, t.sizePx || 26));
+    const lines = formatCaptionText(t.content, fontSize, w).split("\n").filter(Boolean);
+    const lineStep = Math.ceil(fontSize * 1.28);
+    const blockH = Math.max(lineStep, lines.length * lineStep);
+    lines.forEach((line, idx) => {
+      const y =
+        t.position === "top"
+          ? `${40 + idx * lineStep}`
+          : t.position === "center"
+            ? `(h-${blockH})/2+${idx * lineStep}`
+            : `h-${blockH}-48+${idx * lineStep}`;
+      filters.push(
+        `drawtext=${fontArg}text='${escapeDrawtext(line)}':x=(w-text_w)/2:y=${y}:fontsize=${fontSize}:fontcolor=${col}:box=1:boxcolor=black@0.4:boxborderw=10:fix_bounds=1`
+      );
+    });
   }
   return filters.join(",");
 }

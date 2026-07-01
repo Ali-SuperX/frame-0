@@ -650,6 +650,11 @@ function CaptionSection({ zh, onUpdate, hasCaption, text }: { zh: boolean; onUpd
           <input type="number" min={12} max={120} value={text.sizePx} onChange={(e) => onUpdate({ text: { ...text, sizePx: Math.max(12, Math.min(120, Number(e.target.value))) } })} className="cap-input" />
         </Row>
       </div>
+      <div className="cap-actions">
+        <button type="button" className="cap-clear" disabled={!hasCaption && !text.content.trim()} onClick={() => onUpdate({ text: undefined })}>
+          {zh ? "清除字幕" : "Clear caption"}
+        </button>
+      </div>
       <style jsx>{`
         .cap-input {
           width: 100%;
@@ -677,6 +682,27 @@ function CaptionSection({ zh, onUpdate, hasCaption, text }: { zh: boolean; onUpd
           padding: 3px;
         }
         .cap-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .cap-actions {
+          display: flex;
+          justify-content: flex-end;
+        }
+        .cap-clear {
+          border: 1px solid var(--line);
+          background: color-mix(in oklab, var(--ink-2) 86%, transparent);
+          color: var(--paper);
+          border-radius: 6px;
+          padding: 7px 10px;
+          font-size: 12px;
+          cursor: pointer;
+        }
+        .cap-clear:hover:not(:disabled) {
+          border-color: color-mix(in oklab, var(--type-color, var(--accent)) 55%, var(--line));
+          color: var(--type-color, var(--accent));
+        }
+        .cap-clear:disabled {
+          opacity: 0.45;
+          cursor: not-allowed;
+        }
       `}</style>
     </Section>
   );

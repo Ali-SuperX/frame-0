@@ -743,8 +743,8 @@ export default function Canvas({ initialProjectId }: { initialProjectId?: string
   const [voiceId, setVoiceId] = useState("Ethan");
   const [editAspect, setEditAspect] = useState<EditExportCfg["aspect"]>("9:16");
   const [editTransition, setEditTransition] = useState<EditExportCfg["transition"]>("fade");
-  const [editCrossfade, setEditCrossfade] = useState(0.5);
-  const [editSubtitle, setEditSubtitle] = useState(true);
+  const [editCrossfade, setEditCrossfade] = useState(0);
+  const [editSubtitle, setEditSubtitle] = useState(false);
   // 阶段操作区(对话框承载坞配置)用的模型/音色清单
   const t2iModelList = useMemo(() => modelsByMode("t2i"), []);
   const i2vModelList = useMemo(() => { // 视频阶段含 r2v(参考图生视频，如 happyhorse r2v 多参考锁脸)，按 id 去重
@@ -2652,6 +2652,9 @@ export default function Canvas({ initialProjectId }: { initialProjectId?: string
                 <option value="circleopen">{zh ? "圆开" : "Circle"}</option>
               </select>
             </label>
+            <label className="cvc-so-field"><span>{zh ? "秒数" : "Sec"}</span>
+              <input type="number" min={0} max={2} step={0.1} value={editCrossfade} onChange={(e) => { const next = Number(e.target.value); setEditCrossfade(Number.isFinite(next) ? Math.max(0, Math.min(2, next)) : 0); }} />
+            </label>
             <label className="cvc-so-check"><input type="checkbox" checked={editSubtitle} onChange={(e) => setEditSubtitle(e.target.checked)} /><span>{zh ? "字幕" : "Subs"}</span></label>
             <button type="button" className="cvc-so-go" disabled={busy} onClick={() => { setActiveStage(null); exportToEditor({ aspect: editAspect, transition: editTransition, crossfadeSec: editCrossfade, subtitle: editSubtitle }); }}>✂ {zh ? "合成" : "Compose"}</button>
           </>)}
@@ -2682,8 +2685,8 @@ export default function Canvas({ initialProjectId }: { initialProjectId?: string
     // 配音阶段当前关闭：视频完成后直接进入合成。
     const hasLine = (n: CanvasNode) => !!n.text?.split(" · ")[0]?.trim();
     if (DRAMA_VOICE_ENABLED && shots.some((s) => hasLine(s) && !videoCarrier(s).voiceJobId)) return { label: zh ? "配音" : "Voice", run: () => { focus(); void runVoiceStage(voiceId, gid); } }; // 用坞同款音色 + 本组 gid(不配错集)
-    return { label: zh ? "合成成片" : "Compose cut", run: () => { focus(); exportToEditor({ aspect: "9:16", transition: "fade", crossfadeSec: 0.5, subtitle: true }, gid); } };
-  }, [canvasMode, nodes, zh, dramaShotCount, orchModel, designModel, designStyle, designSize, i2vModel, i2vDuration, voiceId, openStagePanelForNote]); // eslint-disable-line react-hooks/exhaustive-deps
+    return { label: zh ? "合成成片" : "Compose cut", run: () => { focus(); exportToEditor({ aspect: editAspect, transition: editTransition, crossfadeSec: editCrossfade, subtitle: editSubtitle }, gid); } };
+  }, [canvasMode, nodes, zh, dramaShotCount, orchModel, designModel, designStyle, designSize, i2vModel, i2vDuration, voiceId, editAspect, editTransition, editCrossfade, editSubtitle, openStagePanelForNote]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* 整组重排：剧本 note 置顶居中，其余(资产/分镜)按拓扑层在其下方纵向展开。
      每加一层(分镜/资产)后调用，让剧集组始终是一棵清爽的纵向树。 */
