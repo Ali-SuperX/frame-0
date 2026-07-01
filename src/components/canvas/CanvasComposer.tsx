@@ -29,6 +29,7 @@ import { useComposerDrag } from "../studio/composer/useComposerDrag";
 import { uploadMediaFile } from "../studio/uploadMedia";
 import type { OrchMode } from "@/lib/canvas/orchestrate";
 import { useCanvasStore, type CanvasNode } from "@/lib/canvasStore";
+import { normalizeLocalUploadPath } from "@/lib/mediaPaths";
 
 const ModelPicker = dynamic(() => import("../studio/ModelPicker"), { ssr: false });
 const MediaPicker = dynamic(() => import("../studio/MediaPicker"), { ssr: false });
@@ -229,6 +230,95 @@ const KIND_ICON: Record<string, string> = {
   generate: "🎞", note: "💡", character: "👤", scene: "🏞", chat: "💬", answer: "✦",
 };
 
+type RefMediaCandidate = {
+  nodeId: string;
+  kind: "image" | "video" | "audio";
+  media: JobMedia;
+};
+type MediaAccept = Extract<ParamField, { kind: "media" }>["accept"];
+
+function mediaIdentity(media: JobMedia | undefined): string {
+  if (!media) return "";
+  return media.localKey || media.localPath || media.url || media.previewUrl || media.name || "";
+}
+
+function sameMedia(a: JobMedia, b: JobMedia): boolean {
+  const ai = mediaIdentity(a);
+  const bi = mediaIdentity(b);
+  return !!ai && !!bi && ai === bi;
+}
+
+function acceptMedia(kind: RefMediaCandidate["kind"], accept: MediaAccept): boolean {
+  if (accept === "image|video") return kind === "image" || kind === "video";
+  return accept === kind;
+}
+
+function jobResultMedia(job: Job | undefined, fallbackName: string): RefMediaCandidate | null {
+  if (!job || job.status !== "done") return null;
+  const resultUrl = normalizeLocalUploadPath(job.videoUrl);
+  if (isImageMode(job.mode)) {
+    const media = job.media?.img_url;
+    const url = media?.url || resultUrl;
+    if (!url) return null;
+    return {
+      nodeId: job.id,
+      kind: "image",
+      media: {
+        ...media,
+        url,
+        name: media?.name || fallbackName,
+        mime: media?.mime || job.localMime,
+        localKey: media?.localKey || job.localKey,
+        localPath: media?.localPath || (resultUrl?.startsWith("/api/") ? resultUrl : undefined),
+      },
+    };
+  }
+  if (resultUrl) {
+    return {
+      nodeId: job.id,
+      kind: "video",
+      media: {
+        url: resultUrl,
+        name: job.title || fallbackName,
+        mime: job.localMime,
+        localKey: job.localKey,
+        localPath: resultUrl.startsWith("/api/") ? resultUrl : undefined,
+      },
+    };
+  }
+  return null;
+}
+
+function draftMediaCandidates(node: CanvasNode): RefMediaCandidate[] {
+  const out: RefMediaCandidate[] = [];
+  const add = (kind: RefMediaCandidate["kind"], media: JobMedia | undefined) => {
+    if (!media?.url || out.some((x) => sameMedia(x.media, media))) return;
+    out.push({ nodeId: node.id, kind, media });
+  };
+  add("image", node.draft.media.img_url);
+  add("image", node.draft.media.last_frame_url);
+  add("video", node.draft.media.first_clip_url);
+  add("video", node.draft.media.video_url);
+  (node.draft.media.reference_urls ?? []).forEach((m) => add(m.mime?.startsWith("video/") ? "video" : "image", m));
+  (node.draft.media.ref_images ?? []).forEach((m) => add("image", m));
+  return out;
+}
+
+function refMediaCandidates(refNodes: CanvasNode[], jobs: Job[]): RefMediaCandidate[] {
+  const out: RefMediaCandidate[] = [];
+  const add = (candidate: RefMediaCandidate | null) => {
+    if (!candidate || out.some((x) => sameMedia(x.media, candidate.media))) return;
+    out.push(candidate);
+  };
+  for (const node of refNodes) {
+    const label = (node.title || node.text || node.draft.prompt || "reference").trim().slice(0, 40) || "reference";
+    const ids = [node.jobId, node.imageJobId, node.videoJobId].filter(Boolean) as string[];
+    for (const id of ids) add(jobResultMedia(jobs.find((j) => j.id === id), `${label}.png`));
+    for (const candidate of draftMediaCandidates(node)) add(candidate);
+  }
+  return out;
+}
+
 type Props = {
   zh: boolean;
   /** 当前选中的可编辑输入节点（draft 已桥接到全局 store） */
@@ -307,6 +397,7 @@ export default function CanvasComposer({
   stageOps,
 }: Props) {
   const draft = useStudioStore((s) => s.draft);
+  const jobs = useStudioStore((s) => s.jobs);
   const setMode = useStudioStore((s) => s.setMode);
   const setModelId = useStudioStore((s) => s.setModelId);
   const setParam = useStudioStore((s) => s.setParam);
@@ -443,6 +534,72 @@ export default function CanvasComposer({
     };
   }, [spec, isMediaMode]);
 
+  const referencedMedia = useMemo(
+    () => refMediaCandidates(refNodes, jobs),
+    [refNodes, jobs]
+  );
+  const refMediaKey = useMemo(
+    () => referencedMedia.map((item) => `${item.kind}:${mediaIdentity(item.media)}`).join("|"),
+    [referencedMedia]
+  );
+  const mediaFieldKey = useMemo(
+    () => fields.media
+      .filter((f): f is Extract<ParamField, { kind: "media" }> => f.kind === "media")
+      .map((f) => `${f.key}:${f.accept}:${f.multiple ? "m" : "1"}:${f.maxCount ?? ""}`)
+      .join("|"),
+    [fields.media]
+  );
+  const autoApplyRefKey = `${mode}:${draft.modelId}:${mediaFieldKey}:${refMediaKey}`;
+  const appliedRefKey = useRef("");
+  useEffect(() => {
+    if (!isMediaMode || !referencedMedia.length || !fields.media.length) return;
+    if (appliedRefKey.current === autoApplyRefKey) return;
+    appliedRefKey.current = autoApplyRefKey;
+
+    const currentMedia = useStudioStore.getState().draft.media;
+    const patch: Partial<Job["media"]> = {};
+    let added = 0;
+    const used = new Set<string>();
+    const mediaFields = fields.media.filter((f): f is Extract<ParamField, { kind: "media" }> => f.kind === "media");
+
+    for (const f of mediaFields.filter((item) => item.multiple)) {
+      const candidates = referencedMedia.filter((item) => acceptMedia(item.kind, f.accept));
+      if (!candidates.length) continue;
+      const existing = (currentMedia[f.key as keyof typeof currentMedia] as JobMedia[] | undefined) ?? [];
+      const room = Math.max(0, (f.maxCount ?? 9) - existing.length);
+      if (!room) continue;
+      const next = candidates
+        .filter((item) => !existing.some((m) => sameMedia(m, item.media)))
+        .slice(0, room)
+        .map((item) => {
+          used.add(mediaIdentity(item.media));
+          return item.media;
+        });
+      if (next.length) {
+        (patch as Record<string, JobMedia[]>)[f.key] = [...existing, ...next];
+        added += next.length;
+      }
+    }
+
+    const singleFields = mediaFields.filter((item) => !item.multiple);
+    const singleCandidates = referencedMedia.filter((item) => !used.has(mediaIdentity(item.media)));
+    let singleIdx = 0;
+    for (const f of singleFields) {
+      const existing = currentMedia[f.key as keyof typeof currentMedia] as JobMedia | undefined;
+      if (existing) continue;
+      const foundAt = singleCandidates.findIndex((item, idx) => idx >= singleIdx && acceptMedia(item.kind, f.accept));
+      if (foundAt < 0) continue;
+      const candidate = singleCandidates[foundAt];
+      singleIdx = foundAt + 1;
+      (patch as Record<string, JobMedia>)[f.key] = candidate.media;
+      added += 1;
+    }
+
+    if (!added) return;
+    setMedia(patch);
+    flash(zh ? `已把 ${added} 个引用媒体填入输入槽 ✦` : `Filled ${added} referenced media`);
+  }, [autoApplyRefKey, fields.media, flash, isMediaMode, referencedMedia, setMedia, zh]);
+
   const missing = useMemo(
     () =>
       fields.media
@@ -452,7 +609,7 @@ export default function CanvasComposer({
           return !v || (Array.isArray(v) && !v.length);
         })
         .map((f) => f.label),
-    [fields.media, draft.media]
+    [fields.media, draft]
   );
 
   const text = draft.prompt;
