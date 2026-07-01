@@ -2403,13 +2403,20 @@ export default function Canvas({ initialProjectId }: { initialProjectId?: string
       </div>
     );
   };
+  const openStagePanelForNote = useCallback((note: CanvasNode, stage: DockStage) => {
+    setSelectedNodeId(note.id);
+    setAllSelected(false);
+    requestAnimationFrame(() => composerApi.current?.focus());
+    setActiveStage(stage);
+  }, []);
+
   // 短剧「下一步」按节点自身剧本计算(用 note.groupId 调度,避免多剧集拆错组);run 时先选中该剧本,活跃组随之同步。
   const nextStepFor = useCallback((note: CanvasNode) => {
     if (canvasMode !== "drama" || (note.kind ?? "") !== "note" || !note.text?.trim()) return null;
     const gid = note.groupId;
     const focus = () => setSelectedNodeId(note.id);
     const shots = nodes.filter((n) => n.groupId === gid && (n.kind ?? "generate") === "generate" && !n.dramaVideoOf); // 只算【分镜】(输入)，排除视频输出节点
-    if (!shots.length) return { label: zh ? "拆分镜" : "Break shots", run: () => { focus(); void runShots(note); } }; // 一键直接拆(用当前镜数+本组 note，多剧集不拆错组)；要改镜数/模型去坞「分镜」阶段操作区
+    if (!shots.length) return { label: zh ? "拆分镜" : "Break shots", run: () => openStagePanelForNote(note, "shots") };
     const assets = nodes.filter((n) => n.groupId === gid && (n.kind === "character" || n.kind === "scene" || n.kind === "prop"));
     if (!assets.length) return { label: zh ? "提取角色场景" : "Extract cast", run: () => { focus(); void runAssets(note); } };
     const needsRedo = (id?: string) => { if (!id) return true; return useStudioStore.getState().jobs.find((x) => x.id === id)?.status === "error"; };
@@ -2422,7 +2429,7 @@ export default function Canvas({ initialProjectId }: { initialProjectId?: string
     const hasLine = (n: CanvasNode) => !!n.text?.split(" · ")[0]?.trim();
     if (shots.some((s) => hasLine(s) && !videoCarrier(s).voiceJobId)) return { label: zh ? "配音" : "Voice", run: () => { focus(); void runVoiceStage(voiceId, gid); } }; // 用坞同款音色 + 本组 gid(不配错集)
     return { label: zh ? "合成成片" : "Compose cut", run: () => { focus(); exportToEditor({ aspect: "9:16", transition: "fade", crossfadeSec: 0.5, subtitle: true }, gid); } };
-  }, [canvasMode, nodes, zh, dramaShotCount, orchModel, designModel, designStyle, designSize, i2vModel, i2vDuration, voiceId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [canvasMode, nodes, zh, dramaShotCount, orchModel, designModel, designStyle, designSize, i2vModel, i2vDuration, voiceId, openStagePanelForNote]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* 整组重排：剧本 note 置顶居中，其余(资产/分镜)按拓扑层在其下方纵向展开。
      每加一层(分镜/资产)后调用，让剧集组始终是一棵清爽的纵向树。 */
