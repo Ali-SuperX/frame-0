@@ -628,14 +628,29 @@ export default function Canvas({ initialProjectId }: { initialProjectId?: string
     // 视频节点有 videoJobId 但其 job 还没就绪(刷新后 jobs 从 IDB 异步 hydrate) → 先不桥接、不标记，
     //   待 jobs 到位本 effect(依赖 jobs)重跑再载真实 prompt；否则会把分镜剧本当 prompt 永久显示，还被 submitMedia 当 rawVideoPrompt 重生成。
     if (selectedComposeNode.dramaVideoOf && selectedComposeNode.videoJobId && !vjob) return;
+    const isDramaGenerate = selectedComposeNode.orchMode === "drama" && (selectedComposeNode.kind ?? "generate") === "generate";
+    const stagedVideoKey = !vjob && composerMode === "video" && isDramaGenerate ? `stage-video:${i2vModel}` : null;
     // 同节点 + 同 job 已桥接 → 不重载(避免覆盖正在编辑)；重生成/重转换了 videoJobId → 强制重载新 prompt
-    const curJob = selectedComposeNode.videoJobId ?? null;
+    const curJob = selectedComposeNode.videoJobId ?? stagedVideoKey;
     if (bridgedIdRef.current === selectedComposeNode.id && bridgedJobRef.current === curJob) return;
     bridgeRef.current = true;
-    const cMode = vjob?.mode ?? nd.mode;
-    const cModel = vjob?.modelId ?? nd.modelId;
-    const cParams = vjob?.params ?? nd.params;
-    const cMedia = vjob?.media ?? nd.media; // 媒体(首帧/参考图)同样以实际 job 为准 —— 写回 draft 时没存 media，只有 job 里有真实喂进去的首帧/角色参考图
+    const stagedVideoSpec =
+      !vjob && composerMode === "video" && isDramaGenerate
+        ? (() => {
+            const chosen = getModel(i2vModel);
+            return chosen && !isImageMode(chosen.mode) ? chosen : defaultModelForMode("r2v");
+          })()
+        : null;
+    const stagedParams = stagedVideoSpec
+      ? {
+          ...stagedVideoSpec.defaults,
+          ...(typeof nd.params.duration === "number" ? { duration: nd.params.duration } : {}),
+        }
+      : null;
+    const cMode = vjob?.mode ?? stagedVideoSpec?.mode ?? nd.mode;
+    const cModel = vjob?.modelId ?? stagedVideoSpec?.id ?? nd.modelId;
+    const cParams = vjob?.params ?? stagedParams ?? nd.params;
+    const cMedia = vjob?.media ?? (stagedVideoSpec ? {} : nd.media); // 媒体(首帧/参考图)同样以实际 job 为准 —— 写回 draft 时没存 media，只有 job 里有真实喂进去的首帧/角色参考图
     const cPrompt = (selectedComposeNode.dramaVideoOf && vjob?.prompt != null) ? vjob.prompt : nd.prompt; // 视频节点：主输入 = 真正发给百炼的完整 prompt(可逐字编辑后直发重生成)；其它节点保持各自 draft.prompt
     s.setMode(cMode);
     s.setModelId(cModel);
@@ -646,7 +661,7 @@ export default function Canvas({ initialProjectId }: { initialProjectId?: string
     bridgedIdRef.current = selectedComposeNode.id;
     bridgedJobRef.current = curJob;
     bridgeRef.current = false;
-  }, [selectedNodeId, composerMode, selectedComposeNode?.videoJobId, jobs]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedNodeId, composerMode, selectedComposeNode?.videoJobId, jobs, i2vModel]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 仅在「从图/视频模式切回 chat」那一刻清一次输入(丢掉上个模式残留的 prompt)；chat 态内切换选中节点不再清 → 保留用户手敲的指令
   useEffect(() => {
@@ -681,6 +696,18 @@ export default function Canvas({ initialProjectId }: { initialProjectId?: string
   // ── 反向桥接：全局 draft 变化 → 写回画布节点（chat 态不写回，杜绝「打字覆盖节点内容」）──
   useEffect(() => {
     if (!selectedComposeNode || bridgeRef.current || composerMode === "chat") return;
+    const isDramaShotVideoEdit =
+      composerMode === "video" &&
+      selectedComposeNode.orchMode === "drama" &&
+      (selectedComposeNode.kind ?? "generate") === "generate" &&
+      !selectedComposeNode.dramaVideoOf;
+    if (isDramaShotVideoEdit) {
+      updateDraft(selectedComposeNode.id, {
+        prompt: draft.prompt,
+        negativePrompt: draft.negativePrompt,
+      });
+      return;
+    }
     // 视频输出节点(dramaVideoOf)的生成配置 = 已跑完的结果，只读：composer 只回写 prompt(segmentPlan)，
     // 绝不回写 modelId/mode/params —— 否则「点进去看一眼配置」或自动切 video 模式触发的 setMode，
     // 会把真实的 r2v/i2v 配置覆盖成默认 t2v 写回节点(用户报「看不到完整配置」的根因)。
@@ -2199,13 +2226,22 @@ export default function Canvas({ initialProjectId }: { initialProjectId?: string
         // 视频节点：用对话框里编辑后的完整 prompt + 模型/参数/参考图作本次 override，逐字直发重生成这一条
         if (videoRegenInflight.current.has(live.id)) { flash(zh ? "这条视频还在重生成中…" : "Still regenerating this clip…"); return; }
         const gd = useStudioStore.getState().draft;
+        const picked = getModel(gd.modelId);
         videoRegenInflight.current.add(live.id);
         void generateNode(live, {
           draftOverride: { prompt: gd.prompt, modelId: gd.modelId, mode: gd.mode, params: gd.params, media: gd.media, negativePrompt: gd.negativePrompt },
           rawVideoPrompt: gd.prompt.trim() || undefined,
-          i2vModelId: gd.modelId, // ★ 让 buildShotVideoJob 尊重用户选的视频模型(否则它按默认/角色参考决策)
+          ...(picked && !isImageMode(picked.mode) ? { i2vModelId: gd.modelId } : {}), // ★ 让 buildShotVideoJob 尊重用户选的视频模型(否则它按默认/角色参考决策)
         }).finally(() => videoRegenInflight.current.delete(live.id));
         flash(zh ? "已用当前配置重生成这一条 ✦" : "Regenerating this clip ✦");
+      } else if (live?.orchMode === "drama" && (live.kind ?? "generate") === "generate" && composerMode === "video") {
+        const gd = useStudioStore.getState().draft;
+        const picked = getModel(gd.modelId);
+        void generateNode(live, {
+          rawVideoPrompt: gd.prompt.trim() || undefined,
+          ...(picked && !isImageMode(picked.mode) ? { i2vModelId: gd.modelId } : {}),
+        });
+        flash(zh ? "正在生成这一镜视频 ✦" : "Generating this shot ✦");
       } else if (live) void generateNode(live);
       return;
     }

@@ -497,6 +497,10 @@ export default function CanvasComposer({
 
   const spec = getModel(draft.modelId);
   const isScriptEdit = (selectedNode?.kind ?? "") === "note"; // 剧本节点编辑态 → 显示剧本操作面板
+  const usesInternalDramaVideoMedia =
+    mode === "video" &&
+    selectedNode?.orchMode === "drama" &&
+    (selectedNode.kind ?? "generate") === "generate";
   // 视频节点：完整展示「真正发给百炼的那次生成」—— 提示词/模型/参数/参考图全部取自该视频的 job(实际调用记录，所见即后端真实调用)
   const backendJob = useStudioStore((s) =>
     selectedNode?.dramaVideoOf && selectedNode?.videoJobId
@@ -602,14 +606,16 @@ export default function CanvasComposer({
 
   const missing = useMemo(
     () =>
-      fields.media
-        .filter((f) => f.kind === "media" && f.required)
-        .filter((f) => {
-          const v = draft.media[f.key as keyof typeof draft.media];
-          return !v || (Array.isArray(v) && !v.length);
-        })
-        .map((f) => f.label),
-    [fields.media, draft]
+      usesInternalDramaVideoMedia
+        ? []
+        : fields.media
+            .filter((f) => f.kind === "media" && f.required)
+            .filter((f) => {
+              const v = draft.media[f.key as keyof typeof draft.media];
+              return !v || (Array.isArray(v) && !v.length);
+            })
+            .map((f) => f.label),
+    [fields.media, draft, usesInternalDramaVideoMedia]
   );
 
   const text = draft.prompt;
@@ -842,7 +848,7 @@ export default function CanvasComposer({
       )}
 
       {/* ── 媒体槽（图片/视频模式且模型有媒体位） ── */}
-      {isMediaMode && fields.media.length > 0 && (
+      {isMediaMode && !usesInternalDramaVideoMedia && fields.media.length > 0 && (
         <div className="cvc-media">
           {fields.media.map((f) =>
             f.kind === "media" && f.multiple ? (
