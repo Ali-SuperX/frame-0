@@ -3652,8 +3652,8 @@ export default function Canvas({ initialProjectId }: { initialProjectId?: string
               onPromptChange={(v) => updateDraft(n.id, { prompt: v })}
               onGenerate={
                 (n.kind ?? "generate") === "chat"
-                  ? () => void runChat(n.draft.prompt, { chatNodeId: n.id })
-                  : () => void generateNode(n)
+                  ? () => runChat(n.draft.prompt, { chatNodeId: n.id })
+                  : () => generateNode(n)
               }
               onRemove={() => deleteNodeWithUndo(n.id)}
               onNextStep={nextStepFor(n)?.run}
@@ -4296,7 +4296,7 @@ function NodeCardImpl({
   onDragHandle: (e: React.PointerEvent) => void;
   onResizeStart: (e: React.PointerEvent, dir: string) => void;
   onPromptChange: (v: string) => void;
-  onGenerate: () => void;
+  onGenerate: () => void | Promise<unknown>;
   /** 短剧剧本节点的「下一步」(跟随进度:拆分镜/批量出图/转视频/成片) */
   onNextStep?: () => void;
   nextStepLabel?: string;
@@ -4333,6 +4333,7 @@ function NodeCardImpl({
   onTailContinue?: (mode: "i2v" | "r2v") => void;
 }) {
   const [plusOpen, setPlusOpen] = useState(false);
+  const [retryingKey, setRetryingKey] = useState<string | null>(null);
   const [rewriteOpen, setRewriteOpen] = useState(false);
   const [rewriteText, setRewriteText] = useState("");
   const [nextEpOpen, setNextEpOpen] = useState(false); // 续下一集二选一展开
@@ -4377,6 +4378,19 @@ function NodeCardImpl({
   const isDone = status === "done" && !!job?.videoUrl;
   const kind = node.kind ?? "generate";
   const isDrama = node.orchMode === "drama";
+  const retryKey = `${node.id}:${job?.id ?? "no-job"}:${job?.status ?? "no-status"}`;
+  const retrying = retryingKey === retryKey;
+
+  async function retryGenerate() {
+    if (retrying) return;
+    setRetryingKey(retryKey);
+    try {
+      await onGenerate();
+    } finally {
+      setRetryingKey(null);
+    }
+  }
+
   // 拖拽中的实际渲染坐标 = store 坐标 + 内存位移
   const px = node.x + (dragOffset?.dx ?? 0);
   const py = node.y + (dragOffset?.dy ?? 0);
@@ -4747,8 +4761,15 @@ function NodeCardImpl({
             <div className="cv-node-err">
               <span>✗ {zh ? "生成失败" : "Failed"}</span>
               <span className="cv-node-err-msg">{job.errorMessage?.slice(0, 80)}</span>
-              <button type="button" className="cv-br" onClick={onGenerate} onPointerDown={(e) => e.stopPropagation()}>
-                ↻ {zh ? "重试" : "Retry"}
+              <button type="button" className="cv-br" disabled={retrying} onClick={() => void retryGenerate()} onPointerDown={(e) => e.stopPropagation()}>
+                {retrying ? (
+                  <>
+                    <span className="cv-spinner cv-spinner-sm" />
+                    {zh ? "重试中…" : "Retrying…"}
+                  </>
+                ) : (
+                  <>↻ {zh ? "重试" : "Retry"}</>
+                )}
               </button>
             </div>
           ) : isDrama && (imageJob || videoJob) ? (
