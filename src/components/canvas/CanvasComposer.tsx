@@ -729,11 +729,6 @@ export default function CanvasComposer({
         }}
       />
 
-      {/* 视频节点：主输入即「真正发给百炼的完整 prompt」，可逐字编辑后直发重生成 */}
-      {selectedNode?.dramaVideoOf && (
-        <div className="cvc-raw-hint">{zh ? "↑ 真正发给百炼的完整提示词，可逐字改 —— 运镜、角色/场景/道具参考都要写进去，系统不再自动拼接或清洗；改完点发送＝重生成这一条" : "↑ The exact prompt sent — edit literally; no auto-assembly or cleaning. Send = regenerate this clip"}</div>
-      )}
-
       {/* 短剧分镜/视频节点：「接上一镜」续写衔接开关 —— 分镜上预勾(首次出整组前)或视频节点上勾，
           出视频时取上一镜实际尾帧当第一帧、接续画面继续演 */}
       {isDramaMode && selectedNode && (selectedNode.kind ?? "generate") === "generate" && (
